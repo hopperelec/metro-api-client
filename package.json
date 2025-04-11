@@ -1,0 +1,50 @@
+{
+  "name": "metro-api-client",
+  "version": "0.0.1",
+  "description": "A client library for my Tyne and Wear Metro API proxy and data aggregator.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "prepublishOnly": "pnpm run build"
+  },
+  "keywords": [
+    "tyne and wear",
+    "metro",
+    "nexus",
+    "api",
+    "proxy",
+    "client",
+    "sse"
+  ],
+  "author": "Cameron Johnston <hopperelec@gmail.com>",
+  "license": "CC-BY-SA-4.0",
+  "homepage": "https://github.com/hopperelec/metro-api-client",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hopperelec/metro-api-client.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hopperelec/metro-api-client/issues"
+  },
+  "devDependencies": {
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "eventsource-client": "^1.1.3"
+  }
+}
