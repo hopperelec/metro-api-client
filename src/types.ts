@@ -340,13 +340,13 @@ export type TimetableResponse<IsAllTrains extends boolean, IsAllStations extends
 
 /** Base interface for responses from the `/stream` endpoint. */
 export interface BaseStreamOptions {
-    /** Which types of events to include in the stream. */
-    type: 'all' | 'trains' | 'errors';
+    /** Which types of events to include in the stream. Defaults to all. */
+    type?: 'trains' | 'errors';
 }
 
-/** Receive all events. */
+/** Receive all events (default). */
 export interface StreamAllOptions extends BaseStreamOptions, FilterableProps {
-    type: 'all';
+    type: undefined;
 }
 
 /** Only receive new-history events. */
@@ -374,7 +374,7 @@ export type StreamOptions = StreamAllOptions | StreamTrainsOptions | StreamError
 /** Payload for the `new-history` SSE event, assuming all properties are present. */
 export interface BaseNewHistoryPayload {
     date: Date;
-    trains: Record<string, Omit<HistoryEntry,"date">[]>;
+    trains: Record<string, Omit<HistoryEntry,"date">>;
 }
 
 /** Payload for the `new-history` SSE event. */
