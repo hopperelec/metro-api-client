@@ -143,8 +143,8 @@ export class MetroApiClient {
 
     async getTimetable<Options extends TimetableOptions>(opts: Options):
         Promise<TimetableResponse<
-                Options['trn'] extends undefined ? true : false,
-                Options['station'] extends undefined ? true : false
+                Options['trn'] extends string ? false : true,
+                Options['station'] extends string ? false : true
         >>
     {
         const queryParams = new URLSearchParams();
