@@ -118,7 +118,10 @@ export interface TrainHistorySummary {
 // --- `/constants` Endpoint ---
 
 /** Response from the `/constants` endpoint. */
-export interface ApiConstants<StationCodes extends Record<string, string> = Record<string, string>> {
+export interface ApiConstants<
+    StationCodes extends Record<string, string> = Record<string, string>,
+    Lines extends Record<string, (keyof StationCodes)[]> = Record<string, (keyof StationCodes)[]>,
+> {
     /** Hour at which the timetable resets to the next day (0-23). */
     NEW_DAY_HOUR: number;
     /** Interval at which history is always updated */
@@ -136,9 +139,14 @@ export interface ApiConstants<StationCodes extends Record<string, string> = Reco
     /** List of "station" codes where trains may be timetabled to stop at, but not while holding passengers, such as sidings */
     NIS_STATIONS: (keyof StationCodes)[];
     /** Map of lines and the stations on them */
-    LINES: Record<string, (keyof StationCodes)[]>;
+    LINES: Lines;
     /** Map from station codes to human-readable names */
     STATION_CODES: StationCodes;
+    /**
+     * Map from line -> direction -> station code -> route code
+     * Note that not every station will have a known route code.
+     */
+    ROUTE_CODES: Record<keyof Lines, Record<TrainDirection, Record<keyof StationCodes, number>>>;
 }
 
 // --- `/trains` Endpoint ---
