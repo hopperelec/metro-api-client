@@ -167,6 +167,22 @@ export type TrainsResponse = RecursivePartial<BaseTrainsResponse>;
 /** Options for the `/train/:trn` endpoint */
 export interface TrainOptions extends FilterableProps {}
 
+/**
+ * Expected timetabled location for a train.
+ * The train should be at or between `station1` and `station2`.
+ *
+ * If the train is not expected to be in service yet, `station1`, `station2` and `destination`
+ * will all be the name of the arrival/departure `place` (e.g. `"Gosforth Depot"`)
+ */
+export interface ExpectedTrainLocation {
+    /** Station code (e.g., `"MTS"`) or arrival/departure `place` (e.g., `"Gosforth Depot"`) */
+    station1: string;
+    /** Station code (e.g., `"CEN"`) or arrival/departure `place` (e.g., `"Gosforth Depot"`) */
+    station2: string;
+    /** Station code (e.g., `"SSS"`) or arrival/departure `place` (e.g., `"Gosforth Depot"`) */
+    destination: string;
+}
+
 /** Base interface for `/train/:trn` endpoint response. */
 export interface TrainStatus {
     /** Time of the last heartbeat */
@@ -175,21 +191,8 @@ export interface TrainStatus {
     lastChanged: Date | null;
     /** Whether the train is currently active */
     active: boolean;
-    /**
-     * Expected timetabled location for a train.
-     * The train should be at or between `station1` and `station2`.
-     *
-     * If the train is not expected to be in service yet, `station1`, `station2` and `destination`
-     * will all be the name of the arrival/departure `place` (e.g. `"Gosforth Depot"`)
-     */
-    timetable: {
-        /** Station code (e.g., `"MTS"`) or arrival/departure `place` (e.g., `"Gosforth Depot"`) */
-        station1: string;
-        /** Station code (e.g., `"CEN"`) or arrival/departure `place` (e.g., `"Gosforth Depot"`) */
-        station2: string;
-        /** Station code (e.g., `"SSS"`) or arrival/departure `place` (e.g., `"Gosforth Depot"`) */
-        destination: string;
-    } | null;
+    /** Expected location of the train, or null if the train is not timetabled to be in service */
+    timetable: ExpectedTrainLocation | null;
 }
 
 /** `/train/:trn` endpoint response for an inactive train. */
@@ -262,8 +265,27 @@ export type TrainHistoryResponse = RecursivePartial<BaseTrainHistoryResponse>;
 /** Arrival/Departure time in "HHMMSS" format. */
 export type ArrivalTime = string;
 
+/** Direction of a train. */
+export type TrainDirection = "in" | "out";
+
+/** A route in the timetable, including all stations and their expected arrival times. */
+export interface AllStationsRoute {
+    /** Code which identifies the destination and line. */
+    code: number;
+    /** Map of stations and their expected arrival times. */
+    stations: Record<string, ArrivalTime>;
+}
+
+/** A route in the timetable and the expected arrival time at a specific station. */
+export interface SingleStationRoute {
+    /** Code which identifies the destination and line. */
+    code: number;
+    /** The expected arrival time at the requested station. */
+    station: ArrivalTime;
+}
+
 /** Timetable information for a single train on a specific day type. */
-export interface TrainTimetable<Table> {
+export interface TrainTimetable<Route = AllStationsRoute> {
     /** The maneuver the train does before starting service. */
     departure: {
         /** Where the maneuver starts (e.g., `"Gosforth Depot"`) */
@@ -283,9 +305,9 @@ export interface TrainTimetable<Table> {
         via: string;
     };
     /** In-line timetable for the train. */
-    in: Table[];
+    in: Route[];
     /** Out-line timetable for the train. */
-    out: Table[];
+    out: Route[];
 }
 
 /** Options for the `/timetable` endpoint */
@@ -313,17 +335,7 @@ export interface TimetableOptions {
 /** Base interface for a table (`in` and `out`) in `/timetable` endpoint response. */
 export type BaseTimetableResponseTable<IsAllStations extends boolean> =
     TrainTimetable<
-        IsAllStations extends true ? {
-            /** Code which identifies the destination and line. */
-            code: number;
-            /** Map of stations and their expected arrival times. */
-            stations: Record<string, ArrivalTime>;
-        } : {
-            /** Code which identifies the destination and line. */
-            code: number;
-            /** The expected arrival time at the requested station. */
-            stations: ArrivalTime;
-        }
+        IsAllStations extends true ? AllStationsRoute : SingleStationRoute
     >;
 
 /** A table (`in` and `out`) in the `/timetable` endpoint response. */
@@ -404,4 +416,21 @@ export interface HeartbeatWarningPayload {
      * See: https://gist.github.com/hopperelec/c23eb872b83b5584122e61a676394ff3#apis
      */
     warnings: any;
+}
+
+// --- Last Seen Parsing ---
+
+/** Possible states shown in the last seen string provided by the train statuses API. */
+export type ActiveTrainState = "Approaching" | "Arrived" | "Ready to start" | "Departed";
+
+/** Valid platform numbers. */
+export type PlatformNumber = 1 | 2 | 3 | 4;
+
+/** Parts of the last seen string provided by the train statuses API. */
+export type ParsedLastSeen = {
+    state: ActiveTrainState;
+    station: string;
+    platform: PlatformNumber;
+    hours: number;
+    minutes: number;
 }
