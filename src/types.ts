@@ -8,7 +8,7 @@
  */
 export type PropsFilter = string[];
 
-/** Base interface for responses allowing filtering of properties. */
+/** Interface for responses allowing filtering of properties. */
 export interface FilterableProps {
     /** Properties to include in the response. */
     props?: PropsFilter;
@@ -155,7 +155,7 @@ export interface ApiConstants<
 export interface TrainsOptions extends FilterableProps {}
 
 /** Response from the `/trains` endpoint, assuming all properties are present. */
-export interface BaseTrainsResponse {
+export interface FullTrainsResponse {
     /** Time of the last heartbeat */
     lastChecked: Date;
     /** List of all active trains */
@@ -168,7 +168,7 @@ export interface BaseTrainsResponse {
 }
 
 /** Response from the `/trains` endpoint. */
-export type TrainsResponse = RecursivePartial<BaseTrainsResponse>;
+export type TrainsResponse = RecursivePartial<FullTrainsResponse>;
 
 // --- `/train/:trn` Endpoint ---
 
@@ -192,7 +192,7 @@ export interface ExpectedTrainLocation {
 }
 
 /** Base interface for `/train/:trn` endpoint response. */
-export interface TrainStatus {
+export interface BaseTrainResponse {
     /** Time of the last heartbeat */
     lastChecked: Date;
     /** When this train's status last changed, or null if this train has not been seen recently */
@@ -204,22 +204,22 @@ export interface TrainStatus {
 }
 
 /** `/train/:trn` endpoint response for an inactive train. */
-export interface InactiveTrainStatus extends TrainStatus {
+export interface InactiveTrainStatus extends BaseTrainResponse {
     active: false;
 }
 
 /** `/train/:trn` endpoint response for an active train. */
-export interface ActiveTrainStatus extends TrainStatus {
+export interface ActiveTrainStatus extends BaseTrainResponse {
     active: true;
     /** The train's current status */
     status: CollatedTrain;
 }
 
 /** Response from the `/train/:trn` endpoint, assuming all properties are present. */
-export type BaseTrainResponse = InactiveTrainStatus | ActiveTrainStatus;
+export type FullTrainResponse = InactiveTrainStatus | ActiveTrainStatus;
 
 /** Response from the `/train/:trn` endpoint. */
-export type TrainResponse = RecursivePartial<BaseTrainResponse>;
+export type TrainResponse = RecursivePartial<FullTrainResponse>;
 
 // --- `/history` Endpoint ---
 
@@ -256,7 +256,7 @@ export interface TrainHistoryOptions {
 }
 
 /** Response from the `/history/:trn` endpoint, assuming all properties are present. */
-export interface BaseTrainHistoryResponse {
+export interface FullTrainHistoryResponse {
     /** Time of the last heartbeat */
     lastChecked: Date;
     /** A summary of the train's history. */
@@ -266,7 +266,7 @@ export interface BaseTrainHistoryResponse {
 }
 
 /** Response from the `/history/:trn` endpoint. */
-export type TrainHistoryResponse = RecursivePartial<BaseTrainHistoryResponse>;
+export type TrainHistoryResponse = RecursivePartial<FullTrainHistoryResponse>;
 
 // --- `/timetable` Endpoint ---
 
@@ -340,15 +340,15 @@ export interface TimetableOptions {
     tableProps?: PropsFilter;
 }
 
-/** Base interface for a table (`in` and `out`) in `/timetable` endpoint response. */
-export type BaseTimetableResponseTable<IsAllStations extends boolean> =
+/** A table (`in` and `out`) in `/timetable` endpoint response, assuming all properties are present. */
+export type FullTimetableResponseTable<IsAllStations extends boolean> =
     TrainTimetable<
         IsAllStations extends true ? AllStationsRoute : SingleStationRoute
     >;
 
 /** A table (`in` and `out`) in the `/timetable` endpoint response. */
 export type TimetableResponseTable<IsAllStations extends boolean> =
-    RecursivePartial<BaseTimetableResponseTable<IsAllStations>>;
+    RecursivePartial<FullTimetableResponseTable<IsAllStations>>;
 
 /** Response from the `/timetable` endpoint. */
 export type TimetableResponse<IsAllTrains extends boolean, IsAllStations extends boolean> =
@@ -392,13 +392,13 @@ export interface StreamErrorsOptions extends BaseStreamOptions {
 export type StreamOptions = StreamAllOptions | StreamTrainsOptions | StreamErrorsOptions;
 
 /** Payload for the `new-history` SSE event, assuming all properties are present. */
-export interface BaseNewHistoryPayload {
+export interface FullNewHistoryPayload {
     date: Date;
     trains: Record<string, Omit<HistoryEntry,"date">>;
 }
 
 /** Payload for the `new-history` SSE event. */
-export type NewHistoryPayload = RecursivePartial<BaseNewHistoryPayload>;
+export type NewHistoryPayload = RecursivePartial<FullNewHistoryPayload>;
 
 /** Payload for the `heartbeat-error` SSE event. */
 export interface HeartbeatErrorPayload {
