@@ -1,5 +1,5 @@
 import {
-    ApiConstants, HeartbeatErrorPayload, HeartbeatWarningPayload,
+    ApiConstants, FullTrainsResponse, HeartbeatErrorPayload, HeartbeatWarningPayload,
     HistorySummaryResponse, NewHistoryPayload,
     PropsFilter, StreamOptions, TimetableOptions, TimetableResponse, TrainHistoryOptions,
     TrainHistoryResponse, TrainOptions,
@@ -14,17 +14,26 @@ function serializeProps(props: PropsFilter) {
 }
 
 function deserializeCollatedTrain(train: any) {
+    if (!train.timesAPI) return train;
     const copy = structuredClone(train);
-    if (copy.timesAPI) {
+    if (copy.timesAPI.lastEvent?.time !== undefined) {
         copy.timesAPI.lastEvent.time = new Date(copy.timesAPI.lastEvent.time);
+    }
+    if (copy.timesAPI.plannedDestinations) {
         for (const plannedDestination of copy.timesAPI.plannedDestinations) {
-            plannedDestination.fromTime = new Date(plannedDestination.fromTime);
+            if (plannedDestination.fromTime !== undefined) {
+                plannedDestination.fromTime = new Date(plannedDestination.fromTime);
+            }
         }
+    }
+    if (copy.timesAPI.nextStations) {
         for (const nextStation of copy.timesAPI.nextStations) {
-            if (nextStation.time.actualScheduledTime) {
+            if (nextStation.time.actualScheduledTime !== undefined) {
                 nextStation.time.actualScheduledTime = new Date(nextStation.time.actualScheduledTime);
             }
-            nextStation.time.actualPredictedTime = new Date(nextStation.time.actualPredictedTime);
+            if (nextStation.time.plannedScheduledTime !== undefined) {
+                nextStation.time.actualPredictedTime = new Date(nextStation.time.actualPredictedTime);
+            }
         }
     }
     return copy;
@@ -32,7 +41,12 @@ function deserializeCollatedTrain(train: any) {
 
 function deserializeHistoryEntry(historyEntry: any) {
     const copy = structuredClone(historyEntry);
-    copy.date = new Date(copy.date);
+    if (copy.date !== undefined) {
+        copy.date = new Date(copy.date);
+    }
+    if (copy.status) {
+        copy.status =  deserializeCollatedTrain(copy.status);
+    }
     return copy;
 }
 
@@ -59,16 +73,16 @@ export class MetroApiClient {
           queryParams.append('props', serializeProps(opts.props));
         }
         const response = await fetch(`${this.baseUrl}/trains?${queryParams}`);
-        const data = await response.json();
+        const data = await response.json() as FullTrainsResponse; // It's not necessarily Full but TS does not like if it's not
         if (data.lastChecked) {
             data.lastChecked = new Date(data.lastChecked);
         }
         if (data.trains && !Array.isArray(data.trains)) {
-            for (const train of data.trains) {
+            for (const train of Object.values(data.trains)) {
                 if (train.status) {
-                    train.status = deserializeCollatedTrain(train);
+                    train.status = deserializeCollatedTrain(train.status);
                 }
-                if (train.lastChanged) {
+                if (train.lastChanged !== undefined) {
                     train.lastChanged = new Date(train.lastChanged);
                 }
             }
@@ -205,8 +219,15 @@ export class MetroApiClient {
                 const data = JSON.parse(event.data);
                 switch (event.event) {
                     case 'new-history':
-                        if (data.date) {
+                        if (data.date !== undefined) {
                             data.date = new Date(data.date);
+                        }
+                        if (data.trains && !Array.isArray(data.trains)) {
+                            for (const train of Object.values(data.trains) as any[]) {
+                                if (train.status) {
+                                    train.status = deserializeCollatedTrain(train.status);
+                                }
+                            }
                         }
                         callbacks.onNewHistory?.(data);
                         break;
