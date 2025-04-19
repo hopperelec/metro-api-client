@@ -276,24 +276,25 @@ export type ArrivalTime = string;
 /** Direction of a train. */
 export type TrainDirection = "in" | "out";
 
-/** A route in the timetable, including all stations and their expected arrival times. */
-export interface AllStationsRoute {
+export interface BaseRoute {
     /** Code which identifies the destination and line. */
     code: number;
+}
+
+/** A route in the timetable, including all stations and their expected arrival times. */
+export interface AllStationsRoute extends BaseRoute {
     /** Map of stations and their expected arrival times. */
     stations: Record<string, ArrivalTime>;
 }
 
 /** A route in the timetable and the expected arrival time at a specific station. */
-export interface SingleStationRoute {
-    /** Code which identifies the destination and line. */
-    code: number;
+export interface SingleStationRoute extends BaseRoute {
     /** The expected arrival time at the requested station. */
-    station: ArrivalTime;
+    time: ArrivalTime;
 }
 
 /** Timetable information for a single train on a specific day type. */
-export interface TrainTimetable<Route = AllStationsRoute> {
+export interface TrainTimetable<Route extends BaseRoute = AllStationsRoute> {
     /** The maneuver the train does before starting service. */
     departure: {
         /** Where the maneuver starts (e.g., `"Gosforth Depot"`) */
