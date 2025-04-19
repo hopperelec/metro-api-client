@@ -21,18 +21,18 @@ function deserializeCollatedTrain(train: any) {
     }
     if (copy.timesAPI.plannedDestinations) {
         for (const plannedDestination of copy.timesAPI.plannedDestinations) {
-            if (plannedDestination.fromTime !== undefined) {
-                plannedDestination.fromTime = new Date(plannedDestination.fromTime);
+            if (plannedDestination.from.time !== undefined) {
+                plannedDestination.from.time = new Date(plannedDestination.from.time);
             }
         }
     }
-    if (copy.timesAPI.nextStations) {
-        for (const nextStation of copy.timesAPI.nextStations) {
-            if (nextStation.time.actualScheduledTime !== undefined) {
-                nextStation.time.actualScheduledTime = new Date(nextStation.time.actualScheduledTime);
+    if (copy.timesAPI.nextPlatforms) {
+        for (const nextPlatform of copy.timesAPI.nextPlatforms) {
+            if (nextPlatform.time.actualScheduledTime !== undefined) {
+                nextPlatform.time.actualScheduledTime = new Date(nextPlatform.time.actualScheduledTime);
             }
-            if (nextStation.time.plannedScheduledTime !== undefined) {
-                nextStation.time.actualPredictedTime = new Date(nextStation.time.actualPredictedTime);
+            if (nextPlatform.time.plannedScheduledTime !== undefined) {
+                nextPlatform.time.actualPredictedTime = new Date(nextPlatform.time.actualPredictedTime);
             }
         }
     }

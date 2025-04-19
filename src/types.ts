@@ -41,16 +41,23 @@ export interface TimesApiData {
     plannedDestinations: {
         /** Name of the destination station. */
         name: string;
-        /** The code of the station where this is expected to become the current destination. */
-        fromStation: string;
-        /** When this is expected to become the current destination. */
-        fromTime: Date;
+        /** When and where this is expected to become the current destination. */
+        from: {
+            /** The code of the station where this is expected to become the current destination. */
+            station: string;
+            /** The platform number where this is expected to become the current destination. */
+            platform: number;
+            /** When this is expected to become the current destination. */
+            time: Date;
+        }
     }[];
-    /** List of next stations, in order of planned arrival. */
-    nextStations: {
+    /** List of next platforms, in order of planned arrival. */
+    nextPlatforms: {
         /** Code of the station. */
         station: string;
-        /** When the train is expected to arrive at this station. */
+        /** Platform number at the station. */
+        platform: number;
+        /** When the train is expected to arrive at this platform. */
         time: {
             /** In how many minutes the train is due. `0` for "Due", `-1` for "Arrived", `-2` for "Delayed". */
             dueIn: number;
@@ -77,10 +84,10 @@ export type CollatedTrain =
 
 // --- History Related Types ---
 
-/** The status of a train in the history. Notably omits nextStations from TimesApiData. */
+/** The status of a train in the history. Notably omits nextPlatforms from TimesApiData. */
 export type ActiveHistoryStatus =
-    | { timesAPI: Omit<TimesApiData, "nextStations">; trainStatusesAPI?: TrainStatusesApiData }
-    | { timesAPI?: Omit<TimesApiData, "nextStations">; trainStatusesAPI: TrainStatusesApiData }
+    | { timesAPI: Omit<TimesApiData, "nextPlatforms">; trainStatusesAPI?: TrainStatusesApiData }
+    | { timesAPI?: Omit<TimesApiData, "nextPlatforms">; trainStatusesAPI: TrainStatusesApiData }
 
 /** Base interface for a single entry in a train's history. */
 export interface BaseHistoryEntry {
