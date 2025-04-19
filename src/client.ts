@@ -136,7 +136,7 @@ export class MetroApiClient {
             if (opts.limit) {
                 queryParams.append('limit', opts.limit.toString());
             }
-            if (opts.active) {
+            if (opts.active !== undefined) {
                 queryParams.append('active', opts.active ? '1' : '0');
             }
             if (opts.props) {
