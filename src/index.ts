@@ -1,4 +1,4 @@
-import {ActiveTrainState, ParsedLastSeen, PlatformNumber} from "./types";
+import {ActiveTrainState, ParsedLastSeen, ParsedTimesAPILocation, PlatformNumber} from "./types";
 
 export { MetroApiClient } from './client';
 export * from './types';
@@ -35,5 +35,21 @@ export function parseLastSeen(lastSeen: string) {
             hours: +match.groups.hours,
             minutes: +match.groups.minutes,
         } as ParsedLastSeen
+    }
+}
+
+const TIMES_API_LOCATION_REGEX = new RegExp(/^(?<station>[a-zA-Z' ]*) Platform (?<platform>[1-4])$/);
+
+/**
+ * Parses the location string provided by the times API.
+ * @param location - the location string
+ */
+export function parseTimesAPILocation(location: string) {
+    const match = location.match(TIMES_API_LOCATION_REGEX);
+    if (match?.groups) {
+        return {
+            station: match.groups.station,
+            platform: +match.groups.platform as PlatformNumber,
+        } as ParsedTimesAPILocation
     }
 }

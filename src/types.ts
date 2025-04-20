@@ -451,3 +451,9 @@ export type ParsedLastSeen = {
     hours: number;
     minutes: number;
 }
+
+/** Parts of the location string provided by the times API. */
+export type ParsedTimesAPILocation = {
+    station: string;
+    platform: PlatformNumber;
+}
