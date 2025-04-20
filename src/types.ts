@@ -200,7 +200,9 @@ export interface TrainOptions extends FilterableProps {}
  * If the train is not expected to be in service yet, `station1`, `station2` and `destination`
  * will all be the name of the arrival/departure `place` (e.g. `"Gosforth Depot"`)
  */
-export interface ExpectedTrainLocation {
+export interface ExpectedTrainState {
+    /** State of the train */
+    state: 'not-started' | 'starting' | 'active' | 'ending' | 'ended' | 'nis';
     /** Station code (e.g., `"MTS"`) or arrival/departure `place` (e.g., `"Gosforth Depot"`) */
     station1: string;
     /** Station code (e.g., `"CEN"`) or arrival/departure `place` (e.g., `"Gosforth Depot"`) */
@@ -210,31 +212,16 @@ export interface ExpectedTrainLocation {
 }
 
 /** Base interface for `/train/:trn` endpoint response. */
-export interface BaseTrainResponse {
+export interface FullTrainResponse {
     /** Time of the last heartbeat */
     lastChecked: Date;
     /** When this train's status last changed, or null if this train has not been seen recently */
     lastChanged: Date | null;
-    /** Whether the train is currently active */
-    active: boolean;
-    /** Expected location of the train, or null if the train is not timetabled to be in service */
-    timetable: ExpectedTrainLocation | null;
+    /** Expected state of the train, or null if the train is not timetabled to be in service */
+    timetable: ExpectedTrainState | null;
+    /** The train's current status, if the train is currently active */
+    status?: CollatedTrain;
 }
-
-/** `/train/:trn` endpoint response for an inactive train. */
-export interface InactiveTrainStatus extends BaseTrainResponse {
-    active: false;
-}
-
-/** `/train/:trn` endpoint response for an active train. */
-export interface ActiveTrainStatus extends BaseTrainResponse {
-    active: true;
-    /** The train's current status */
-    status: CollatedTrain;
-}
-
-/** Response from the `/train/:trn` endpoint, assuming all properties are present. */
-export type FullTrainResponse = InactiveTrainStatus | ActiveTrainStatus;
 
 /** Response from the `/train/:trn` endpoint. */
 export type TrainResponse = RecursivePartial<FullTrainResponse>;
