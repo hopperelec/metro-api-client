@@ -165,10 +165,13 @@ export class MetroApiClient {
     {
         const queryParams = new URLSearchParams();
         if (opts) {
-            for (const opt of ['day', 'trn', 'station', 'direction', 'emptyManeuvers'] as const) {
+            for (const opt of ['trn', 'station', 'direction', 'emptyManeuvers'] as const) {
                 if (opts[opt]) {
                     queryParams.append(opt, opts[opt].toString());
                 }
+            }
+            if (opts.date) {
+                queryParams.append('date', opts.date.toISOString().split('T')[0]);
             }
             if (opts.emptyManeuverProps) {
                 queryParams.append('emptyManeuverProps', serializeProps(opts.emptyManeuverProps));

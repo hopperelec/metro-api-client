@@ -339,8 +339,11 @@ export interface TrainTimetable<Route extends BaseRoute = AllStationsRoute> {
 
 /** Options for the `/timetable` endpoint */
 export interface TimetableOptions {
-    /** Day of the week (`0`=Monday, `6`=Sunday, defaults to today) */
-    day?: number;
+    /**
+     * Date to get the timetable for, defaults to today.
+     * Note that the timetable usually crosses midnight into the next day.
+     */
+    date?: Date;
     /** Filter by Train Running Number (TRN, without the leading "T", e.g. `"101"`), defaults to all TRNs */
     trn?: string;
     /** Filter by station code. */
