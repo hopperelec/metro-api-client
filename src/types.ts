@@ -24,16 +24,27 @@ type RecursivePartial<T> = {
 
 // --- Underlying API Related Types ---
 
+/**
+ * A unique identifier for a platform.
+ * This is usually in the format `<station code>;<platform number>` (e.g., `"MTW;4"`).
+ * However, the proxy does not check if this is in the expected format,
+ * so you should do your own checks if you need to parse this
+ */
+export type PlatformCode = string;
+
 /** Information about a train derived from the Times API. */
 export interface TimesApiData {
     /** Last event for the train. */
     lastEvent: {
         /** Type of the last event (e.g., `"APPROACHING"`, `"ARRIVED"`). */
         type: string;
-        /** Name of the station where the last event occurred. */
-        station: string;
-        /** Platform number of the last event. */
-        platform: number;
+        /**
+         * A human-readable representation of the station and platform where the last event occurred.
+         * This is usually in the format "`<station name> Platform <platform number>`".
+         * However, the proxy does not check if this is in the expected format,
+         * so you should do your own checks if you need to parse this.
+         */
+        location: string;
         /** Time of the last event. */
         time: Date;
     };
@@ -43,20 +54,16 @@ export interface TimesApiData {
         name: string;
         /** When and where this is expected to become the current destination. */
         from: {
-            /** The code of the station where this is expected to become the current destination. */
-            station: string;
-            /** The platform number where this is expected to become the current destination. */
-            platform: number;
+            /** Where this is expected to become the current destination. */
+            platformCode: PlatformCode;
             /** When this is expected to become the current destination. */
             time: Date;
         }
     }[];
     /** List of next platforms, in order of planned arrival. */
     nextPlatforms: {
-        /** Code of the station. */
-        station: string;
-        /** Platform number at the station. */
-        platform: number;
+        /** The code of the platform. */
+        code: PlatformCode
         /** When the train is expected to arrive at this platform. */
         time: {
             /** In how many minutes the train is due. `0` for "Due", `-1` for "Arrived", `-2` for "Delayed". */
@@ -73,7 +80,11 @@ export interface TimesApiData {
 export interface TrainStatusesApiData {
     /** Name of the destination. */
     destination: string;
-    /** Last seen status string (e.g., "Arrived Monument platform 3 at 12:34"). */
+    /**
+     * Last seen status of the train, in the format used on the Pop app's embedded map.
+     * The proxy does not check if this is in the expected format,
+     * so you should do your own checks if you need to parse this.
+     */
     lastSeen: string;
 }
 
