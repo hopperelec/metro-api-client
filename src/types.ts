@@ -148,6 +148,33 @@ export interface ActiveTrainHistoryEntry extends BaseTrainHistoryEntry {
 /** A single entry in a train's history. */
 export type TrainHistoryEntry = ActiveTrainHistoryEntry | InactiveTrainHistoryEntry;
 
+// --- Heartbeat Errors and Warnings ---
+
+/** A single entry in the heartbeat errors history. */
+export interface HeartbeatErrorEntry extends BaseHistoryEntry {
+    /** Identifier of the API that produced the error. */
+    api: string;
+    /** String containing the error message. */
+    message: string;
+}
+
+/** A single entry in the heartbeat warnings history. */
+export interface HeartbeatWarningEntry extends BaseHistoryEntry {
+    /** Identifier of the API that produced the warning. */
+    api: string;
+    /**
+     * The specific warning data.
+     * The structure will vary depending on the API that produced the warning.
+     * See: https://gist.github.com/hopperelec/c23eb872b83b5584122e61a676394ff3#apis
+     */
+    warnings: any;
+}
+
+type FilteredByAPI<
+    Entry extends HeartbeatErrorEntry | HeartbeatWarningEntry,
+    Options extends { apis?: string[] }
+> = Entry & { api: Options["apis"] extends string[] ? Options["apis"][number] : string };
+
 // --- `/constants` Endpoint ---
 
 /** Response from the `/constants` endpoint. */
@@ -163,6 +190,10 @@ export interface ApiConstants<
     ACTIVE_REFRESH_MINIMUM_TIMEOUT: number;
     /** Maximum number of train history entries kept, per train, before old entries are purged */
     MAX_TRAIN_HISTORY_LENGTH: number;
+    /** Maximum number of heartbeat errors kept before old ones are purged */
+    MAX_HEARTBEAT_ERRORS_LENGTH: number;
+    /** Maximum number of heartbeat warnings kept before old ones are purged */
+    MAX_HEARTBEAT_WARNINGS_LENGTH: number;
     /** Maximum age of history entries, in milliseconds, before being purged */
     MAX_HISTORY_AGE: number;
     /** Maximum number of history entries (limit) returned by `/history/train/:trn` */
@@ -297,6 +328,39 @@ export type TrainHistoryResponse<Options extends TrainHistoryOptions> = Filtered
         : FullTrainHistoryResponse,
     Options["props"]
 >;
+
+// --- `/history/heartbeat-errors` Endpoint ---
+
+/** Options for `/history/heartbeat-errors` endpoint */
+export interface HeartbeatErrorsOptions {
+    /** Whether to also receive warnings. */
+    warnings?: boolean
+    /** Range of time to get the history for */
+    time?: TimeFilter;
+    /**
+     * A list of internal API identifiers to receive errors (and optionally warnings) for.
+     * See: https://gist.github.com/hopperelec/c23eb872b83b5584122e61a676394ff3#apis
+     */
+    apis?: string[];
+}
+
+/** Response from the `/history/heartbeat-errors` endpoint when warnings are not included. */
+export type HeartbeatErrorsResponseWithoutWarnings<
+    Options extends { apis?: string[] } = {}
+> = FilteredByAPI<HeartbeatErrorEntry, Options>[];
+
+/** Response from the `/history/heartbeat-errors` endpoint when warnings are also included. */
+export type HeartbeatErrorsResponseWithWarnings<
+    Options extends { apis?: string[] } = {}
+> = {
+    errors: FilteredByAPI<HeartbeatErrorEntry, Options>[];
+    warnings: FilteredByAPI<HeartbeatWarningEntry, Options>[];
+}
+
+export type HeartbeatErrorsResponse<Options extends HeartbeatErrorsOptions> =
+    Options extends { warnings: true }
+        ? HeartbeatErrorsResponseWithWarnings<Options>
+        : HeartbeatErrorsResponseWithoutWarnings<Options>;
 
 // --- `/timetable` Endpoint ---
 
@@ -453,30 +517,10 @@ export interface FullNewHistoryPayload {
 export type NewHistoryPayload = RecursivePartial<FullNewHistoryPayload>;
 
 /** Payload for the `heartbeat-error` SSE event. */
-export interface HeartbeatErrorPayload {
-    /**
-     * Identifier of the API that produced the error.
-     * See: https://gist.github.com/hopperelec/c23eb872b83b5584122e61a676394ff3#apis
-     */
-    api: string;
-    /** String containing the error message. */
-    error: string;
-}
+export type HeartbeatErrorPayload = Omit<HeartbeatErrorEntry, "date">;
 
 /** Payload for the `heartbeat-warnings` SSE event. */
-export interface HeartbeatWarningPayload {
-    /**
-     * Identifier of the API that produced the warning.
-     * See: https://gist.github.com/hopperelec/c23eb872b83b5584122e61a676394ff3#apis
-     */
-    api: string;
-    /**
-     * The specific warning data.
-     * The structure will vary depending on the API that produced the warning.
-     * See: https://gist.github.com/hopperelec/c23eb872b83b5584122e61a676394ff3#apis
-     */
-    warnings: any;
-}
+export type HeartbeatWarningPayload = Omit<HeartbeatWarningEntry, "date">;
 
 // --- Last Seen Parsing ---
 

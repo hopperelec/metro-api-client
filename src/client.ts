@@ -1,8 +1,18 @@
 import {
-    ApiConstants, FullTrainResponse, FullTrainsResponse, HeartbeatErrorPayload, HeartbeatWarningPayload,
-    HistorySummaryResponse, NewHistoryPayload,
-    PropsFilter, StreamOptions, TimetableOptions, TimetableResponse, TrainHistoryOptions,
-    TrainHistoryResponse, TrainOptions,
+    ApiConstants,
+    FullTrainsResponse,
+    HeartbeatErrorPayload,
+    HeartbeatErrorsOptions, HeartbeatErrorsResponse, HeartbeatErrorsResponseWithoutWarnings,
+    HeartbeatWarningPayload,
+    HistorySummaryResponse,
+    NewHistoryPayload,
+    PropsFilter,
+    StreamOptions, TimeFilter,
+    TimetableOptions,
+    TimetableResponse,
+    TrainHistoryOptions,
+    TrainHistoryResponse,
+    TrainOptions,
     TrainResponse,
     TrainsOptions,
     TrainsResponse
@@ -11,6 +21,15 @@ import {createEventSource} from 'eventsource-client'
 
 function serializeProps(props: PropsFilter) {
     return props.join(',');
+}
+
+function serializeTimeFilter(timeFilter: TimeFilter) {
+    if ('at' in timeFilter) return timeFilter.at.getTime().toString();
+    let from = '';
+    let to = '';
+    if ('from' in timeFilter) from = timeFilter.from.getTime().toString();
+    if ('to' in timeFilter) to = timeFilter.to.getTime().toString();
+    return `${from}...${to}`;
 }
 
 function deserializeCollatedTrain(train: any) {
@@ -100,10 +119,7 @@ export class MetroApiClient {
           queryParams.append('props', serializeProps(opts.props));
         }
         const response = await fetch(`${this.baseUrl}/train/${trn}?${queryParams}`);
-
-        // It's not necessarily Full, but it's easier to assume it is
-        const data = await response.json() as FullTrainResponse;
-
+        const data = await response.json();
         if (data.lastChecked) {
             data.lastChecked = new Date(data.lastChecked);
         }
@@ -113,13 +129,12 @@ export class MetroApiClient {
         if (data.status) {
             data.status = deserializeCollatedTrain(data.status);
         }
-
         return data;
     }
 
     async getHistorySummary(): Promise<HistorySummaryResponse> {
         const response = await fetch(`${this.baseUrl}/history`);
-        const data = await response.json();
+        const data = await response.json() as HistorySummaryResponse;
         data.lastChecked = new Date(data.lastChecked);
         for (const trn of Object.keys(data.trains)) {
             data.trains[trn] = deserializeTrainHistorySummary(data.trains[trn]);
@@ -127,19 +142,11 @@ export class MetroApiClient {
         return data;
     }
 
-    async getHistory<Options extends TrainHistoryOptions>(trn: string, opts?: Options): Promise<TrainHistoryResponse<Options>> {
+    async getTrainHistory<Options extends TrainHistoryOptions>(trn: string, opts?: Options): Promise<TrainHistoryResponse<Options>> {
         const queryParams = new URLSearchParams();
         if (opts) {
             if (opts.time) {
-                let from = '';
-                let to = '';
-                if ('from' in opts.time) {
-                    from = opts.time.from.getTime().toString()
-                }
-                if ('to' in opts.time) {
-                    to = opts.time.to.getTime().toString()
-                }
-                queryParams.append('time', `${from}...${to}`);
+                queryParams.append('time', serializeTimeFilter(opts.time));
             }
             if (opts.limit) {
                 queryParams.append('limit', opts.limit.toString());
@@ -161,6 +168,37 @@ export class MetroApiClient {
         }
         if (data.extract) {
             data.extract = data.extract.map(deserializeHistoryEntry);
+        }
+
+        return data;
+    }
+
+    async getHeartbeatErrors<Options extends HeartbeatErrorsOptions>(opts?: Options): Promise<HeartbeatErrorsResponse<Options>> {
+        const queryParams = new URLSearchParams();
+        if (opts) {
+            if (opts.warnings) {
+                queryParams.append('warnings', '');
+            }
+            if (opts.time) {
+                queryParams.append('time', serializeTimeFilter(opts.time));
+            }
+            if (opts.apis) {
+                queryParams.append('apis', opts.apis.join(','));
+            }
+        }
+        const response = await fetch(`${this.baseUrl}/history/heartbeat-errors?${queryParams}`);
+        const data = await response.json();
+        if ('warnings' in data) {
+            for (const error of data.errors) {
+                error.date = new Date(error.date);
+            }
+            for (const warning of data.warnings) {
+                warning.date = new Date(warning.date);
+            }
+        } else {
+            for (const error of data as HeartbeatErrorsResponseWithoutWarnings) {
+                error.date = new Date(error.date);
+            }
         }
         return data;
     }
