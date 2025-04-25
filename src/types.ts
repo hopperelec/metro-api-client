@@ -42,6 +42,16 @@ export type TimeFilter =
  */
 export type PlatformCode = string;
 
+/** When a train is expected to arrive at a platform. */
+export interface DueTime {
+    /** In how many minutes the train is due. `0` for "Due", `-1` for "Arrived", `-2` for "Delayed". */
+    dueIn: number;
+    /** The scheduled time, according to Nexus, or null. */
+    actualScheduledTime: Date | null;
+    /** The predicted time, according to Nexus. */
+    actualPredictedTime: Date;
+}
+
 /** Information about a train derived from the Times API. */
 export interface TimesApiData {
     /** Last event for the train. */
@@ -75,14 +85,7 @@ export interface TimesApiData {
         /** The code of the platform. */
         code: PlatformCode
         /** When the train is expected to arrive at this platform. */
-        time: {
-            /** In how many minutes the train is due. `0` for "Due", `-1` for "Arrived", `-2` for "Delayed". */
-            dueIn: number;
-            /** The scheduled time, according to Nexus, or null. */
-            actualScheduledTime: Date | null;
-            /** The predicted time, according to Nexus. */
-            actualPredictedTime: Date;
-        };
+        time: DueTime;
     }[];
 }
 
@@ -271,6 +274,82 @@ export interface FullTrainResponse {
 
 /** Response from the `/train/:trn` endpoint. */
 export type TrainResponse<Options extends TrainOptions> = FilteredByProps<FullTrainResponse, Options["props"]>;
+
+// --- `/due-times` Endpoint ---
+
+/** Options for the `/due-times` endpoint */
+export interface DueTimesOptions extends FilterableProps {}
+
+/** Response from the `/due-times` endpoint, assuming all properties are present. */
+export interface FullDueTimesResponse {
+    /** Time of the last heartbeat */
+    lastChecked: Date;
+    /**
+     * Map of platform codes to a list of the next trains due at that platform, in order of time.dueIn
+     *
+     * Note that the same train can theoretically appear multiple times if:
+     * - it is expected to turn around facing road
+     * - it is running a very short shuttle service, which it is expected to lap within 100 minutes
+     * - or, most likely, if the API is confused.
+     */
+    dueTimes: Record<string, {
+        /** TRN of the train to arrive at the platform */
+        trn: string;
+        /** When that train is expected to arrive at the platform */
+        time: DueTime;
+    }[]>;
+}
+
+/** Response from the `/due-times` endpoint. */
+export type DueTimesResponse<Options extends DueTimesOptions> = FilteredByProps<FullDueTimesResponse, Options["props"]>;
+
+// --- `/due-times/station/:station` Endpoint ---
+
+/** Options for the `/due-times/station/:station` endpoint */
+export interface StationDueTimesOptions extends FilterableProps {}
+
+/** Response from the `/due-times/station/:station` endpoint, assuming all properties are present. */
+export interface FullStationDueTimesResponse {
+    /** Time of the last heartbeat */
+    lastChecked: Date;
+    /** The next trains due at this station, in order of time.dueIn */
+    dueTimes: {
+        /** The platform number */
+        platform: PlatformNumber;
+        /** TRN of the train to arrive at the platform */
+        trn: string;
+        /** When that train is expected to arrive at the platform */
+        time: DueTime;
+        /** The current status of the train */
+        status: CollatedTrain;
+    }[];
+}
+
+/** Response from the `/due-times/station/:station` endpoint. */
+export type StationDueTimesResponse<Options extends StationDueTimesOptions> = FilteredByProps<FullStationDueTimesResponse, Options["props"]>;
+
+// --- `/due-times/platform/:platform` Endpoint ---
+
+/** Options for the `/due-times/platform/:platform` endpoint */
+export interface PlatformDueTimesOptions extends FilterableProps {}
+
+/** Response from the `/due-times/platform/:platform` endpoint, assuming all properties are present. */
+export interface FullPlatformDueTimesResponse {
+    /** Time of the last heartbeat */
+    lastChecked: Date;
+    /** The next trains due at this platform, in order of time.dueIn */
+    dueTimes: {
+        /** TRN of the train to arrive at the platform */
+        trn: string;
+        /** When that train is expected to arrive at the platform */
+        time: DueTime;
+        /** The current status of the train */
+        status: CollatedTrain;
+    }[];
+}
+
+/** Response from the `/due-times/platform/:platform` endpoint. */
+export type PlatformDueTimesResponse<Options extends PlatformDueTimesOptions> = FilteredByProps<FullPlatformDueTimesResponse, Options["props"]>;
 
 // --- `/history` Endpoint ---
 

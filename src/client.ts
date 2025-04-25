@@ -1,12 +1,12 @@
 import {
-    ApiConstants,
+    ApiConstants, DueTimesOptions, DueTimesResponse,
     FullTrainsResponse,
     HeartbeatErrorPayload,
     HeartbeatErrorsOptions, HeartbeatErrorsResponse, HeartbeatErrorsResponseWithoutWarnings,
     HeartbeatWarningPayload,
     HistorySummaryResponse,
-    NewHistoryPayload,
-    PropsFilter,
+    NewHistoryPayload, PlatformCode, PlatformDueTimesOptions, PlatformDueTimesResponse,
+    PropsFilter, StationDueTimesOptions, StationDueTimesResponse,
     StreamOptions, TimeFilter,
     TimetableOptions,
     TimetableResponse,
@@ -201,6 +201,33 @@ export class MetroApiClient {
             }
         }
         return data;
+    }
+
+    async getDueTimes<Options extends DueTimesOptions>(opts?: Options): Promise<DueTimesResponse<Options>> {
+        const queryParams = new URLSearchParams();
+        if (opts?.props) {
+            queryParams.append('props', serializeProps(opts.props));
+        }
+        const response = await fetch(`${this.baseUrl}/due-times?${queryParams}`);
+        return response.json();
+    }
+
+    async getPlatformDueTimes<Options extends PlatformDueTimesOptions>(platform: PlatformCode, opts?: Options): Promise<PlatformDueTimesResponse<Options>> {
+        const queryParams = new URLSearchParams();
+        if (opts?.props) {
+            queryParams.append('props', serializeProps(opts.props));
+        }
+        const response = await fetch(`${this.baseUrl}/due-times/platform/${platform}?${queryParams}`);
+        return response.json();
+    }
+
+    async getStationDueTimes<Options extends StationDueTimesOptions>(stationCode: string, opts?: Options): Promise<StationDueTimesResponse<Options>> {
+        const queryParams = new URLSearchParams();
+        if (opts?.props) {
+            queryParams.append('props', serializeProps(opts.props));
+        }
+        const response = await fetch(`${this.baseUrl}/due-times/station/${stationCode}?${queryParams}`);
+        return response.json();
     }
 
     async getTimetable<Options extends TimetableOptions>(opts?: Options): Promise<TimetableResponse<Options>> {
