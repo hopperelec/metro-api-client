@@ -1,4 +1,4 @@
-// --- Props filtering ---
+// --- Filtering ---
 
 /**
  * A list of properties, which are themselves dot-separated lists of keys.
@@ -21,6 +21,16 @@ type RecursivePartial<T> = {
         T[P] extends object | undefined ? RecursivePartial<T[P]> :
             T[P];
 };
+
+type FilteredByProps<
+    T, Props extends PropsFilter | undefined
+> = Props extends undefined ? T : RecursivePartial<T>;
+
+export type TimeFilter =
+    | { at: Date; }
+    | { from: Date; }
+    | { to: Date; }
+    | { from: Date; to: Date; };
 
 // --- Underlying API Related Types ---
 
@@ -93,38 +103,15 @@ export type CollatedTrain =
     | { timesAPI: TimesApiData; trainStatusesAPI?: TrainStatusesApiData }
     | { timesAPI?: TimesApiData; trainStatusesAPI: TrainStatusesApiData };
 
-// --- History Related Types ---
+// --- History ---
 
-/** The status of a train in the history. Notably omits nextPlatforms from TimesApiData. */
-export type ActiveHistoryStatus =
-    | { timesAPI: Omit<TimesApiData, "nextPlatforms">; trainStatusesAPI?: TrainStatusesApiData }
-    | { timesAPI?: Omit<TimesApiData, "nextPlatforms">; trainStatusesAPI: TrainStatusesApiData }
-
-/** Base interface for a single entry in a train's history. */
 export interface BaseHistoryEntry {
-    /** Time of the history entry. */
+    /** Time of the heartbeat that created this history entry. */
     date: Date;
-    /** Whether the train was active at this time. */
-    active: boolean;
 }
-
-/** A single entry in a train's history when the train is inactive. */
-export interface InactiveHistoryEntry extends BaseHistoryEntry {
-    active: false;
-}
-
-/** A single entry in a train's history when the train is active. */
-export interface ActiveHistoryEntry extends BaseHistoryEntry {
-    active: true;
-    /** The train's status at this time */
-    status: ActiveHistoryStatus;
-}
-
-/** A single entry in a train's history. */
-export type HistoryEntry = ActiveHistoryEntry | InactiveHistoryEntry;
 
 /** Summary of a train's history. */
-export interface TrainHistorySummary {
+export interface HistorySummary {
     /** Number of history entries available. */
     numEntries: number;
     /** When the first entry was made. */
@@ -132,6 +119,34 @@ export interface TrainHistorySummary {
     /** When the last entry was made. */
     lastEntry: Date;
 }
+
+// --- Train History ---
+
+/** The status of a train in the history. Notably omits nextPlatforms from TimesApiData. */
+export type ActiveTrainHistoryStatus =
+    | { timesAPI: Omit<TimesApiData, "nextPlatforms">; trainStatusesAPI?: TrainStatusesApiData }
+    | { timesAPI?: Omit<TimesApiData, "nextPlatforms">; trainStatusesAPI: TrainStatusesApiData }
+
+/** Base interface for a single entry in a train's history. */
+export interface BaseTrainHistoryEntry extends BaseHistoryEntry {
+    /** Whether the train was active at this time. */
+    active: boolean;
+}
+
+/** A single entry in a train's history when the train is inactive. */
+export interface InactiveTrainHistoryEntry extends BaseTrainHistoryEntry {
+    active: false;
+}
+
+/** A single entry in a train's history when the train is active. */
+export interface ActiveTrainHistoryEntry extends BaseTrainHistoryEntry {
+    active: true;
+    /** The train's status at this time */
+    status: ActiveTrainHistoryStatus;
+}
+
+/** A single entry in a train's history. */
+export type TrainHistoryEntry = ActiveTrainHistoryEntry | InactiveTrainHistoryEntry;
 
 // --- `/constants` Endpoint ---
 
@@ -146,13 +161,13 @@ export interface ApiConstants<
     PASSIVE_REFRESH_INTERVAL: number;
     /** Minimum time between updates to the history, such as when a request is made for a train's current status */
     ACTIVE_REFRESH_MINIMUM_TIMEOUT: number;
-    /* Maximum number of history entries kept per train, before old entries are purged */
-    MAX_HISTORY_LENGTH: number;
+    /** Maximum number of train history entries kept, per train, before old entries are purged */
+    MAX_TRAIN_HISTORY_LENGTH: number;
     /** Maximum age of history entries, in milliseconds, before being purged */
     MAX_HISTORY_AGE: number;
-    /** Maximum number of history entries (limit) returned by `/history/:trn` */
+    /** Maximum number of history entries (limit) returned by `/history/train/:trn` */
     MAX_HISTORY_REQUEST_LIMIT: number;
-    /** Default number of history entries (limit) returned by `/history/:trn` if no limit is specified */
+    /** Default number of history entries (limit) returned by `/history/train/:trn` if no limit is specified */
     DEFAULT_HISTORY_REQUEST_LIMIT: number;
     /** List of "station" codes where trains may be timetabled to stop at, but not while holding passengers, such as sidings */
     NIS_STATIONS: (keyof StationCodes)[];
@@ -186,7 +201,7 @@ export interface FullTrainsResponse {
 }
 
 /** Response from the `/trains` endpoint. */
-export type TrainsResponse = RecursivePartial<FullTrainsResponse>;
+export type TrainsResponse<Options extends TrainsOptions> = FilteredByProps<FullTrainsResponse, Options["props"]>;
 
 // --- `/train/:trn` Endpoint ---
 
@@ -224,7 +239,7 @@ export interface FullTrainResponse {
 }
 
 /** Response from the `/train/:trn` endpoint. */
-export type TrainResponse = RecursivePartial<FullTrainResponse>;
+export type TrainResponse<Options extends TrainOptions> = FilteredByProps<FullTrainResponse, Options["props"]>;
 
 // --- `/history` Endpoint ---
 
@@ -232,18 +247,19 @@ export interface HistorySummaryResponse {
     /** Time of the last heartbeat */
     lastChecked: Date;
     /** Map of train running numbers (TRNs, without the leading "T", e.g. "101") to their history summaries */
-    trains: Record<string, TrainHistorySummary>;
+    trains: Record<string, HistorySummary>;
+    /** History summary for the heartbeat errors */
+    heartbeatErrors: HistorySummary;
+    /** History summary for the heartbeat warnings */
+    heartbeatWarnings: HistorySummary;
 }
 
-// --- `/history/:trn` Endpoint
+// --- `/history/train/:trn` Endpoint
 
-/** Options for `/history/:trn` endpoint */
+/** Options for `/history/train/:trn` endpoint */
 export interface TrainHistoryOptions {
     /** Range of time to get the history for */
-    time?:
-        | { from: Date; }
-        | { to: Date; }
-        | { from: Date; to: Date; };
+    time?: TimeFilter;
     /**
      * Limit the number of results.
      * Check `/constants` for the default and maximum values.
@@ -260,69 +276,29 @@ export interface TrainHistoryOptions {
     props?: PropsFilter;
 }
 
-/** Response from the `/history/:trn` endpoint, assuming all properties are present. */
+/** Response from the `/history/train/:trn` endpoint, assuming all properties are present. */
 export interface FullTrainHistoryResponse {
     /** Time of the last heartbeat */
     lastChecked: Date;
     /** A summary of the train's history. */
-    summary: TrainHistorySummary;
+    summary: HistorySummary;
     /** The selected history entries. */
-    extract: HistoryEntry[];
+    extract: TrainHistoryEntry[];
 }
 
-/** Response from the `/history/:trn` endpoint. */
-export type TrainHistoryResponse = RecursivePartial<FullTrainHistoryResponse>;
+export interface FullActiveTrainHistoryResponse extends FullTrainHistoryResponse {
+    extract: ActiveTrainHistoryEntry[];
+}
+
+/** Response from the `/history/train/:trn` endpoint. */
+export type TrainHistoryResponse<Options extends TrainHistoryOptions> = FilteredByProps<
+    Options extends { active: true }
+        ? FullActiveTrainHistoryResponse
+        : FullTrainHistoryResponse,
+    Options["props"]
+>;
 
 // --- `/timetable` Endpoint ---
-
-/** Arrival/Departure time in "HHMMSS" format. */
-export type ArrivalTime = string;
-
-/** Direction of a train. */
-export type TrainDirection = "in" | "out";
-
-export interface BaseRoute {
-    /** Code which identifies the destination and line. */
-    code: number;
-}
-
-/** A route in the timetable, including all stations and their expected arrival times. */
-export interface AllStationsRoute extends BaseRoute {
-    /** Map of stations and their expected arrival times. */
-    stations: Record<string, ArrivalTime>;
-}
-
-/** A route in the timetable and the expected arrival time at a specific station. */
-export interface SingleStationRoute extends BaseRoute {
-    /** The expected arrival time at the requested station. */
-    time: ArrivalTime;
-}
-
-/** Timetable information for a single train on a specific day type. */
-export interface TrainTimetable<Route extends BaseRoute = AllStationsRoute> {
-    /** The maneuver the train does before starting service. */
-    departure: {
-        /** Where the maneuver starts (e.g., `"Gosforth Depot"`) */
-        place: string;
-        /** The time the maneuver starts, in "HHMM" format */
-        time: string;
-        /** A description of the maneuver, after departing */
-        via: string;
-    };
-    /** The maneuver the train does after ending service. */
-    arrival: {
-        /** Where the maneuver ends (e.g., `"Gosforth Depot"`) */
-        place: string;
-        /** The time the maneuver ends, in "HHMM" format */
-        time: string;
-        /** A description of the maneuver, after ending service */
-        via: string;
-    };
-    /** In-line timetable for the train. */
-    in: Route[];
-    /** Out-line timetable for the train. */
-    out: Route[];
-}
 
 /** Options for the `/timetable` endpoint */
 export interface TimetableOptions {
@@ -349,21 +325,88 @@ export interface TimetableOptions {
     tableProps?: PropsFilter;
 }
 
-/** A table (`in` and `out`) in `/timetable` endpoint response, assuming all properties are present. */
-export type FullTimetableResponseTable<IsAllStations extends boolean> =
+/** Arrival/Departure time in "HHMMSS" format. */
+export type ArrivalTime = string;
+
+/** Direction of a train. */
+export type TrainDirection = "in" | "out";
+
+export interface BaseRoute {
+    /** Code which identifies the destination and line. */
+    code: number;
+}
+
+/** A route in the timetable, including all stations and their expected arrival times. */
+export interface AllStationsRoute extends BaseRoute {
+    /** Map of stations and their expected arrival times. */
+    stations: Record<string, ArrivalTime>;
+}
+
+/** A route in the timetable and the expected arrival time at a specific station. */
+export interface SingleStationRoute extends BaseRoute {
+    /** The expected arrival time at the requested station. */
+    time: ArrivalTime;
+}
+
+/** A description of how a train, without passengers on board, gets to or from storage */
+export interface TrainEmptyManeuver {
+    /** Where the maneuver starts or ends (e.g., `"Gosforth Depot"`) */
+    place: string;
+    /** The time the maneuver starts or ends, in "HHMM" format */
+    time: string;
+    /** A description of the maneuver */
+    via: string;
+}
+
+/** A description of the maneuver a train does before starting service. */
+export interface FullDeparture extends TrainEmptyManeuver {
+    /** Where the maneuver starts (e.g., `"Gosforth Depot"`) */
+    place: string;
+    /** The time the maneuver starts, in "HHMM" format */
+    time: string;
+    /** A description of the maneuver, after departing */
+    via: string;
+}
+
+/** A description of the maneuver a train does after ending service. */
+export interface FullArrival extends TrainEmptyManeuver {
+    /** Where the maneuver ends (e.g., `"Gosforth Depot"`) */
+    place: string;
+    /** The time the maneuver ends, in "HHMM" format */
+    time: string;
+    /** A description of the maneuver, after ending service */
+    via: string;
+}
+
+/** Timetable information for a single train on a specific day type. */
+export interface TrainTimetable<
+    Route extends BaseRoute = AllStationsRoute,
+    EmptyManeuverProps extends PropsFilter | undefined = undefined,
+    TableProps extends PropsFilter | undefined = undefined,
+> {
+    /** The maneuver the train does before starting service. */
+    departure: FilteredByProps<FullDeparture, EmptyManeuverProps>;
+    /** The maneuver the train does after ending service. */
+    arrival: FilteredByProps<FullArrival, EmptyManeuverProps>;
+    /** In-line timetable for the train. */
+    in: FilteredByProps<Route, TableProps>[];
+    /** Out-line timetable for the train. */
+    out: FilteredByProps<Route, TableProps>[];
+}
+
+/** A proxy for TrainTimetable, based on TimetableOptions. */
+export type TrainTimetableFromOptions<Options extends TimetableOptions> =
     TrainTimetable<
-        IsAllStations extends true ? AllStationsRoute : SingleStationRoute
+        Options["station"] extends string ? AllStationsRoute : SingleStationRoute,
+        Options["emptyManeuverProps"],
+        Options["tableProps"]
     >;
 
-/** A table (`in` and `out`) in the `/timetable` endpoint response. */
-export type TimetableResponseTable<IsAllStations extends boolean> =
-    RecursivePartial<FullTimetableResponseTable<IsAllStations>>;
-
 /** Response from the `/timetable` endpoint. */
-export type TimetableResponse<IsAllTrains extends boolean, IsAllStations extends boolean> =
-    IsAllTrains extends true
-        ? TimetableResponseTable<IsAllStations>
-        : Record<string, TimetableResponseTable<IsAllStations>>;
+export type TimetableResponse<Options extends TimetableOptions> =
+    TimetableOptions extends { trn: string }
+        ? TrainTimetableFromOptions<Options>
+        : Record<string, TrainTimetableFromOptions<Options>>;
 
 // --- `/stream` Endpoint ---
 
@@ -403,7 +446,7 @@ export type StreamOptions = StreamAllOptions | StreamTrainsOptions | StreamError
 /** Payload for the `new-history` SSE event, assuming all properties are present. */
 export interface FullNewHistoryPayload {
     date: Date;
-    trains: Record<string, Omit<HistoryEntry,"date">>;
+    trains: Record<string, Omit<TrainHistoryEntry, "date">>;
 }
 
 /** Payload for the `new-history` SSE event. */

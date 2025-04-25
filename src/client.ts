@@ -1,5 +1,5 @@
 import {
-    ApiConstants, FullTrainsResponse, HeartbeatErrorPayload, HeartbeatWarningPayload,
+    ApiConstants, FullTrainResponse, FullTrainsResponse, HeartbeatErrorPayload, HeartbeatWarningPayload,
     HistorySummaryResponse, NewHistoryPayload,
     PropsFilter, StreamOptions, TimetableOptions, TimetableResponse, TrainHistoryOptions,
     TrainHistoryResponse, TrainOptions,
@@ -67,13 +67,16 @@ export class MetroApiClient {
         return response.json();
     }
 
-    async getTrains(opts?: TrainsOptions): Promise<TrainsResponse> {
+    async getTrains<Options extends TrainsOptions>(opts?: Options): Promise<TrainsResponse<Options>> {
         const queryParams = new URLSearchParams();
         if (opts?.props) {
           queryParams.append('props', serializeProps(opts.props));
         }
         const response = await fetch(`${this.baseUrl}/trains?${queryParams}`);
-        const data = await response.json() as FullTrainsResponse; // It's not necessarily Full but TS does not like if it's not
+
+        // It's not necessarily Full, but it's easier to assume it is
+        const data = await response.json() as FullTrainsResponse;
+
         if (data.lastChecked) {
             data.lastChecked = new Date(data.lastChecked);
         }
@@ -87,16 +90,20 @@ export class MetroApiClient {
                 }
             }
         }
+
         return data;
     }
 
-    async getTrain(trn: string, opts?: TrainOptions): Promise<TrainResponse> {
+    async getTrain<Options extends TrainOptions>(trn: string, opts?: Options): Promise<TrainResponse<Options>> {
         const queryParams = new URLSearchParams();
         if (opts?.props) {
           queryParams.append('props', serializeProps(opts.props));
         }
         const response = await fetch(`${this.baseUrl}/train/${trn}?${queryParams}`);
-        const data = await response.json();
+
+        // It's not necessarily Full, but it's easier to assume it is
+        const data = await response.json() as FullTrainResponse;
+
         if (data.lastChecked) {
             data.lastChecked = new Date(data.lastChecked);
         }
@@ -106,6 +113,7 @@ export class MetroApiClient {
         if (data.status) {
             data.status = deserializeCollatedTrain(data.status);
         }
+
         return data;
     }
 
@@ -119,7 +127,7 @@ export class MetroApiClient {
         return data;
     }
 
-    async getHistory(trn: string, opts?: TrainHistoryOptions): Promise<TrainHistoryResponse> {
+    async getHistory<Options extends TrainHistoryOptions>(trn: string, opts?: Options): Promise<TrainHistoryResponse<Options>> {
         const queryParams = new URLSearchParams();
         if (opts) {
             if (opts.time) {
@@ -157,12 +165,7 @@ export class MetroApiClient {
         return data;
     }
 
-    async getTimetable<Options extends TimetableOptions>(opts?: Options):
-        Promise<TimetableResponse<
-                Options['trn'] extends string ? false : true,
-                Options['station'] extends string ? false : true
-        >>
-    {
+    async getTimetable<Options extends TimetableOptions>(opts?: Options): Promise<TimetableResponse<Options>> {
         const queryParams = new URLSearchParams();
         if (opts) {
             for (const opt of ['trn', 'station', 'direction', 'emptyManeuvers'] as const) {
