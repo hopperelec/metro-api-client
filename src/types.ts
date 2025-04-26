@@ -540,7 +540,7 @@ export interface TrainTimetable<
 /** A proxy for TrainTimetable, based on TimetableOptions. */
 export type TrainTimetableFromOptions<Options extends TimetableOptions> =
     TrainTimetable<
-        Options["station"] extends string ? AllStationsRoute : SingleStationRoute,
+        Options["station"] extends string ? SingleStationRoute : AllStationsRoute,
         Options["emptyManeuverProps"],
         Options["tableProps"]
     >;
