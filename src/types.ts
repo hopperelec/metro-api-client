@@ -176,7 +176,7 @@ export interface HeartbeatWarningsEntry extends BaseHistoryEntry {
 type FilteredByAPI<
     Entry extends { api: string },
     Options extends { apis?: string[] }
-> = Entry & { api: Options["apis"] extends string[] ? Options["apis"][number] : string };
+> = Entry & { api: Options extends { apis: string[] } ? Options["apis"][number] : string };
 
 // --- `/constants` Endpoint ---
 
@@ -540,7 +540,7 @@ export interface TrainTimetable<
 /** A proxy for TrainTimetable, based on TimetableOptions. */
 export type TrainTimetableFromOptions<Options extends TimetableOptions> =
     TrainTimetable<
-        Options["station"] extends string ? SingleStationRoute : AllStationsRoute,
+        Options extends { station: string } ? SingleStationRoute : AllStationsRoute,
         Options["emptyManeuverProps"],
         Options["tableProps"]
     >;
@@ -604,7 +604,7 @@ export interface FullNewTrainsHistoryPayload<
 > extends StreamPayload {
     /** A map of train running numbers (TRNs, without the leading "T", e.g. "101") to their new history entries */
     trains: {
-        [trn in Options["trns"] extends string[] ? Options["trns"][number] : string]: Omit<TrainHistoryEntry, "date">
+        [trn in Options extends { trns: string[] } ? Options["trns"][number] : string]: Omit<TrainHistoryEntry, "date">
     };
 }
 
