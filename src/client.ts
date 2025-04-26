@@ -270,7 +270,7 @@ export class MetroApiClient {
             callbacks: StreamCallbacks & {
                 onNewTrainHistoryEntries: (data: NewTrainsHistoryPayload) => void,
                 onHeartbeatError: (data: HeartbeatErrorPayload) => void,
-                onHeartbeatWarning: (data: HeartbeatWarningsPayload) => void,
+                onHeartbeatWarnings: (data: HeartbeatWarningsPayload) => void,
             },
             opts?: Options
     ): {
@@ -300,7 +300,7 @@ export class MetroApiClient {
                         callbacks.onHeartbeatError(data);
                         break;
                     case 'heartbeat-warning':
-                        callbacks.onHeartbeatWarning(data);
+                        callbacks.onHeartbeatWarnings(data);
                         break;
                     default:
                         console.warn(`Unknown event type: ${event.event}`);
