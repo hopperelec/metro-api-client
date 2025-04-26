@@ -522,34 +522,38 @@ export interface FullArrival extends TrainEmptyManeuver {
 }
 
 /** Timetable information for a single train on a specific day type. */
-export interface TrainTimetable<
-    Route extends BaseRoute = AllStationsRoute,
-    EmptyManeuverProps extends PropsFilter | undefined = undefined,
-    TableProps extends PropsFilter | undefined = undefined,
-> {
+export interface TrainTimetable<Options extends TimetableOptions = {}> {
     /** The maneuver the train does before starting service. */
-    departure: FilteredByProps<FullDeparture, EmptyManeuverProps>;
+    departure: Options extends { emptyManeuvers: "departure" | undefined }
+        ? FilteredByProps<FullDeparture, Options["emptyManeuverProps"]>
+        : never;
     /** The maneuver the train does after ending service. */
-    arrival: FilteredByProps<FullArrival, EmptyManeuverProps>;
+    arrival: Options extends { emptyManeuvers: "arrival" | undefined }
+        ? FilteredByProps<FullArrival, Options["emptyManeuverProps"]>
+        : never;
     /** In-line timetable for the train. */
-    in: FilteredByProps<Route, TableProps>[];
+    in: Options extends { direction: "in" | undefined }
+        ? FilteredByProps<
+            Options extends { station: string }
+                ? SingleStationRoute
+                : AllStationsRoute,
+            Options["tableProps"]>[]
+        : never;
     /** Out-line timetable for the train. */
-    out: FilteredByProps<Route, TableProps>[];
+    out: Options extends { direction: "out" | undefined }
+        ? FilteredByProps<
+            Options extends { station: string } ?
+                SingleStationRoute :
+                AllStationsRoute,
+            Options["tableProps"]>[]
+        : never;
 }
-
-/** A proxy for TrainTimetable, based on TimetableOptions. */
-export type TrainTimetableFromOptions<Options extends TimetableOptions> =
-    TrainTimetable<
-        Options extends { station: string } ? SingleStationRoute : AllStationsRoute,
-        Options["emptyManeuverProps"],
-        Options["tableProps"]
-    >;
 
 /** Response from the `/timetable` endpoint. */
 export type TimetableResponse<Options extends TimetableOptions> =
-    TimetableOptions extends { trn: string }
-        ? TrainTimetableFromOptions<Options>
-        : Record<string, TrainTimetableFromOptions<Options>>;
+    Options extends { trn: string }
+        ? TrainTimetable<Options>
+        : Record<string, TrainTimetable<Options>>;
 
 // --- Streams ---
 
