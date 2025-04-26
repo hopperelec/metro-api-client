@@ -12,8 +12,8 @@ import {
     HistorySummaryResponse, NewTrainHistoryPayload,
     NewTrainsHistoryPayload,
     PlatformCode,
-    PlatformDueTimesOptions,
-    PlatformDueTimesResponse,
+    PlatformDueTimesOptions, PlatformDueTimesPayload,
+    PlatformDueTimesResponse, PlatformDueTimesStreamOptions,
     PropsFilter,
     StationDueTimesOptions, StationDueTimesPayload,
     StationDueTimesResponse, StationDueTimesStreamOptions,
@@ -443,10 +443,10 @@ export class MetroApiClient {
         });
     }
 
-    streamPlatformDueTimes<Options extends StationDueTimesStreamOptions>(
+    streamPlatformDueTimes<Options extends PlatformDueTimesStreamOptions>(
             platformCode: string,
             callbacks: StreamCallbacks & {
-                onDueTimes: (data: StationDueTimesPayload<Options>) => void,
+                onDueTimes: (data: PlatformDueTimesPayload<Options>) => void,
             },
             opts?: Options
     ): {
