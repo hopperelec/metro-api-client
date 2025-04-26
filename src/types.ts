@@ -162,7 +162,7 @@ export interface HeartbeatErrorEntry extends BaseHistoryEntry {
 }
 
 /** A single entry in the heartbeat warnings history. */
-export interface HeartbeatWarningEntry extends BaseHistoryEntry {
+export interface HeartbeatWarningsEntry extends BaseHistoryEntry {
     /** Identifier of the API that produced the warning. */
     api: string;
     /**
@@ -174,7 +174,7 @@ export interface HeartbeatWarningEntry extends BaseHistoryEntry {
 }
 
 type FilteredByAPI<
-    Entry extends HeartbeatErrorEntry | HeartbeatWarningEntry,
+    Entry extends { api: string },
     Options extends { apis?: string[] }
 > = Entry & { api: Options["apis"] extends string[] ? Options["apis"][number] : string };
 
@@ -417,7 +417,7 @@ export interface HeartbeatErrorsOptions {
     /** Range of time to get the history for */
     time?: TimeFilter;
     /**
-     * A list of internal API identifiers to receive errors (and optionally warnings) for.
+     * List of internal API identifiers to receive errors (and optionally warnings) for.
      * See: https://gist.github.com/hopperelec/c23eb872b83b5584122e61a676394ff3#apis
      */
     apis?: string[];
@@ -433,7 +433,7 @@ export type HeartbeatErrorsResponseWithWarnings<
     Options extends { apis?: string[] } = {}
 > = {
     errors: FilteredByAPI<HeartbeatErrorEntry, Options>[];
-    warnings: FilteredByAPI<HeartbeatWarningEntry, Options>[];
+    warnings: FilteredByAPI<HeartbeatWarningsEntry, Options>[];
 }
 
 export type HeartbeatErrorsResponse<Options extends HeartbeatErrorsOptions> =
@@ -551,55 +551,115 @@ export type TimetableResponse<Options extends TimetableOptions> =
         ? TrainTimetableFromOptions<Options>
         : Record<string, TrainTimetableFromOptions<Options>>;
 
-// --- `/stream` Endpoint ---
+// --- Streams ---
 
-/** Base interface for responses from the `/stream` endpoint. */
-export interface BaseStreamOptions {
-    /** Which types of events to include in the stream. Defaults to all. */
-    type?: 'trains' | 'errors';
+export interface StreamCallbacks {
+    onConnect?: () => void;
+    onDisconnect?: () => void;
+    onScheduleReconnect?: (info: { delay: number }) => void;
 }
 
-/** Receive all events (default). */
-export interface StreamAllOptions extends BaseStreamOptions, FilterableProps {
-    type: undefined;
-}
-
-/** Only receive new-history events. */
-export interface StreamTrainsOptions extends BaseStreamOptions, FilterableProps {
-    type: 'trains';
-    /** A list of Train Running Numbers (TRNs, without the leading "T", e.g. "101") to receive new-history updates for. */
-    trns?: string[];
-}
-
-/** Only receive heartbeat-error (and optionally heartbeat-warnings) events. */
-export interface StreamErrorsOptions extends BaseStreamOptions {
-    type: 'errors';
-    /** Whether to also receive warnings. */
-    warnings?: boolean;
-    /**
-     * A list of internal API identifiers to receive errors (and optionally warnings) for.
-     * See: https://gist.github.com/hopperelec/c23eb872b83b5584122e61a676394ff3#apis
-     */
-    apis?: string[];
-}
-
-/** Options for the `/stream` endpoint. */
-export type StreamOptions = StreamAllOptions | StreamTrainsOptions | StreamErrorsOptions;
-
-/** Payload for the `new-history` SSE event, assuming all properties are present. */
-export interface FullNewHistoryPayload {
+export interface StreamPayload {
+    /** The timestamp of the heartbeat that created this event. */
     date: Date;
-    trains: Record<string, Omit<TrainHistoryEntry, "date">>;
 }
 
-/** Payload for the `new-history` SSE event. */
-export type NewHistoryPayload = RecursivePartial<FullNewHistoryPayload>;
+// --- `/history/stream` Endpoint ---
 
-/** Payload for the `heartbeat-error` SSE event. */
-export type HeartbeatErrorPayload = Omit<HeartbeatErrorEntry, "date">;
+/** Options for `/history/stream` endpoint */
+export interface HistoryStreamOptions {
+    /** Properties to include for `new-trains-history` events */
+    trainProps?: PropsFilter;
+}
 
-/** Payload for the `heartbeat-warnings` SSE event. */
-export type HeartbeatWarningPayload = Omit<HeartbeatWarningEntry, "date">;
+/** Options for `/history/train/:trn/stream` endpoint */
+export interface TrainHistoryStreamOptions extends FilterableProps {}
+
+/** Options for `/history/trains/stream` endpoint */
+export interface TrainsHistoryStreamOptions {
+    /** List of train running numbers (TRNs, without the leading "T", e.g. "101") to stream updates for */
+    trns?: string[];
+    /** Properties to include for `new-trains-history` events */
+    trainProps?: PropsFilter;
+}
+
+/** Options for `/history/heartbeat-errors/stream` endpoint */
+export interface HeartbeatErrorsStreamOptions {
+    /** List of internal API identifiers to receive errors (and optionally warnings) for. */
+    apis?: string[];
+    // Determine this based on if the developer adds a listener for warnings
+    // /** Whether to also receive warnings. */
+    // warnings?: boolean;
+}
+
+/** Options for `/due-times/station/:station/stream` endpoint */
+export interface StationDueTimesStreamOptions extends FilterableProps {}
+
+/** Options for `/due-times/platform/:platform/stream` endpoint */
+export interface PlatformDueTimesStreamOptions extends FilterableProps {}
+
+/** Payload from the `new-trains-history` event, assuming all properties are present. */
+export interface FullNewTrainsHistoryPayload<
+    Options extends { trns?: string[] } = TrainsHistoryStreamOptions
+> extends StreamPayload {
+    /** A map of train running numbers (TRNs, without the leading "T", e.g. "101") to their new history entries */
+    trains: {
+        [trn in Options["trns"] extends string[] ? Options["trns"][number] : string]: Omit<TrainHistoryEntry, "date">
+    };
+}
+
+/** Payload from the `new-trains-history` event. */
+export type NewTrainsHistoryPayload<Options extends TrainsHistoryStreamOptions = {}> =
+    FilteredByProps<FullNewTrainsHistoryPayload<Options>, Options["trainProps"]>;
+
+/** Payload from the `new-train-history` event. */
+export type NewTrainHistoryPayload = StreamPayload & (
+    Omit<TrainHistoryEntry, "date"> | never
+);
+
+/** Payload from the `heartbeat-error` event. */
+export type HeartbeatErrorPayload<Options extends { apis?: string[] } = {}> =
+    StreamPayload & FilteredByAPI<Omit<HeartbeatErrorEntry, "date">, Options>;
+
+/** Payload from the `heartbeat-warnings` event. */
+export type HeartbeatWarningsPayload<Options extends { apis?: string[] } = {}> =
+    StreamPayload & FilteredByAPI<Omit<HeartbeatWarningsEntry, "date">, Options>;
+
+/** Payload from the `station-due-times` event, assuming all properties are present. */
+export type FullStationDueTimesPayload = StreamPayload & {
+    /** The next trains due at this station, in order of time.dueIn */
+    dueTimes: {
+        /** The platform number */
+        platform: PlatformNumber;
+        /** TRN of the train to arrive at the platform */
+        trn: string;
+        /** When that train is expected to arrive at the platform */
+        time: DueTime;
+        /** The current status of the train */
+        status: CollatedTrain
+    }[];
+};
+
+/** Payload from the `station-due-times` event. */
+export type StationDueTimesPayload<Options extends StationDueTimesStreamOptions = {}> =
+    FilteredByProps<FullStationDueTimesPayload, Options["props"]>;
+
+/** Payload from the `platform-due-times` event, assuming all properties are present. */
+export type FullPlatformDueTimesPayload = StreamPayload & {
+    /** List of the next trains due at this platform, in order of time.dueIn */
+    dueTimes: {
+        /** TRN of the train to arrive at the platform */
+        trn: string;
+        /** When that train is expected to arrive at the platform */
+        time: DueTime;
+        /** The current status of the train */
+        status: CollatedTrain
+    }[];
+};
+
+/** Payload from the `platform-due-times` event. */
+export type PlatformDueTimesPayload<Options extends PlatformDueTimesStreamOptions = {}> =
+    FilteredByProps<FullPlatformDueTimesPayload, Options["props"]>;
 
 // --- Last Seen Parsing ---
 
