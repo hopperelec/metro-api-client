@@ -23,8 +23,8 @@ type RecursivePartial<T> = {
 };
 
 type FilteredByProps<
-    T, Props extends PropsFilter | undefined
-> = Props extends undefined ? T : RecursivePartial<T>;
+    T, Options, PropsKey extends string = "props"
+> = PropsKey extends keyof Options ? RecursivePartial<T> : T;
 
 export type TimeFilter =
     | { at: Date; }
@@ -235,7 +235,7 @@ export interface FullTrainsResponse {
 }
 
 /** Response from the `/trains` endpoint. */
-export type TrainsResponse<Options extends TrainsOptions> = FilteredByProps<FullTrainsResponse, Options["props"]>;
+export type TrainsResponse<Options extends TrainsOptions> = FilteredByProps<FullTrainsResponse, Options>;
 
 // --- `/train/:trn` Endpoint ---
 
@@ -273,7 +273,7 @@ export interface FullTrainResponse {
 }
 
 /** Response from the `/train/:trn` endpoint. */
-export type TrainResponse<Options extends TrainOptions> = FilteredByProps<FullTrainResponse, Options["props"]>;
+export type TrainResponse<Options extends TrainOptions> = FilteredByProps<FullTrainResponse, Options>;
 
 // --- `/due-times` Endpoint ---
 
@@ -301,7 +301,7 @@ export interface FullDueTimesResponse {
 }
 
 /** Response from the `/due-times` endpoint. */
-export type DueTimesResponse<Options extends DueTimesOptions> = FilteredByProps<FullDueTimesResponse, Options["props"]>;
+export type DueTimesResponse<Options extends DueTimesOptions> = FilteredByProps<FullDueTimesResponse, Options>;
 
 // --- `/due-times/station/:station` Endpoint ---
 
@@ -326,7 +326,7 @@ export interface FullStationDueTimesResponse {
 }
 
 /** Response from the `/due-times/station/:station` endpoint. */
-export type StationDueTimesResponse<Options extends StationDueTimesOptions> = FilteredByProps<FullStationDueTimesResponse, Options["props"]>;
+export type StationDueTimesResponse<Options extends StationDueTimesOptions> = FilteredByProps<FullStationDueTimesResponse, Options>;
 
 // --- `/due-times/platform/:platform` Endpoint ---
 
@@ -349,7 +349,7 @@ export interface FullPlatformDueTimesResponse {
 }
 
 /** Response from the `/due-times/platform/:platform` endpoint. */
-export type PlatformDueTimesResponse<Options extends PlatformDueTimesOptions> = FilteredByProps<FullPlatformDueTimesResponse, Options["props"]>;
+export type PlatformDueTimesResponse<Options extends PlatformDueTimesOptions> = FilteredByProps<FullPlatformDueTimesResponse, Options>;
 
 // --- `/history` Endpoint ---
 
@@ -405,7 +405,7 @@ export type TrainHistoryResponse<Options extends TrainHistoryOptions> = Filtered
     Options extends { active: true }
         ? FullActiveTrainHistoryResponse
         : FullTrainHistoryResponse,
-    Options["props"]
+    Options
 >;
 
 // --- `/history/heartbeat-errors` Endpoint ---
@@ -521,33 +521,49 @@ export interface FullArrival extends TrainEmptyManeuver {
     via: string;
 }
 
-/** Timetable information for a single train on a specific day type. */
-export interface TrainTimetable<Options extends TimetableOptions = {}> {
+interface _TrainTimetable<Options extends TimetableOptions> {
     /** The maneuver the train does before starting service. */
-    departure: Options extends { emptyManeuvers: "departure" | undefined }
-        ? FilteredByProps<FullDeparture, Options["emptyManeuverProps"]>
-        : never;
+    departure: Options extends { emptyManeuvers: "arrival" | "none" }
+        ? never
+        : FilteredByProps<FullDeparture, Options, "emptyManeuverProps">;
     /** The maneuver the train does after ending service. */
-    arrival: Options extends { emptyManeuvers: "arrival" | undefined }
-        ? FilteredByProps<FullArrival, Options["emptyManeuverProps"]>
-        : never;
+    arrival: Options extends { emptyManeuvers: "departure" | "none" }
+        ? never
+        : FilteredByProps<FullArrival, Options, "emptyManeuverProps">;
     /** In-line timetable for the train. */
-    in: Options extends { direction: "in" | undefined }
-        ? FilteredByProps<
+    in: Options extends { direction: "out" | "none" }
+        ? never
+        : FilteredByProps<
             Options extends { station: string }
                 ? SingleStationRoute
                 : AllStationsRoute,
-            Options["tableProps"]>[]
-        : never;
+            Options, "tableProps">[];
     /** Out-line timetable for the train. */
-    out: Options extends { direction: "out" | undefined }
-        ? FilteredByProps<
-            Options extends { station: string } ?
-                SingleStationRoute :
-                AllStationsRoute,
-            Options["tableProps"]>[]
-        : never;
+    out: Options extends { direction: "in" | "none" }
+        ? never
+        : FilteredByProps<
+            Options extends { station: string }
+                ? SingleStationRoute
+                : AllStationsRoute,
+            Options, "tableProps">[];
 }
+
+// It seems that _TrainTimetable is too complex for TypeScript to
+//  evaluate the exact type when checking for assignability.
+// Instead, it just checks if the `Options` generics are mutually assignable.
+// However, this means that, for example, `TrainTimetable<{ date: Date }>`
+//  is not assignable to `TrainTimetable`, even though they evaluate to the same type.
+// It enforces this so strictly that it doesn't even permit asserting the type
+//  (`TrainTimetable<{ date: Date }> as TrainTimetable`) unless you use `as unknown` first.
+// This proxy type is a workaround to force TypeScript to ignore properties
+//  which I am confident have no effect on the final structure of the type.
+//
+// I spent way too long debugging this because I refuse
+//  to use `as unknown as TrainTimetable<...>` everywhere.
+// If you have a more elegant solution, I'm dying to know.
+/** Timetable information for a single train on a specific day type. */
+export type TrainTimetable<Options extends TimetableOptions = {}> =
+    _TrainTimetable<Pick<Options, "emptyManeuvers" | "emptyManeuverProps" | "direction" | "station" | "tableProps">>;
 
 /** Response from the `/timetable` endpoint. */
 export type TimetableResponse<Options extends TimetableOptions> =
@@ -614,7 +630,7 @@ export interface FullNewTrainsHistoryPayload<
 
 /** Payload from the `new-trains-history` event. */
 export type NewTrainsHistoryPayload<Options extends TrainsHistoryStreamOptions = {}> =
-    FilteredByProps<FullNewTrainsHistoryPayload<Options>, Options["trainProps"]>;
+    FilteredByProps<FullNewTrainsHistoryPayload<Options>, Options, "tableProps">;
 
 /** Payload from the `new-train-history` event. */
 export type NewTrainHistoryPayload = StreamPayload & (
@@ -646,7 +662,7 @@ export type FullStationDueTimesPayload = StreamPayload & {
 
 /** Payload from the `station-due-times` event. */
 export type StationDueTimesPayload<Options extends StationDueTimesStreamOptions = {}> =
-    FilteredByProps<FullStationDueTimesPayload, Options["props"]>;
+    FilteredByProps<FullStationDueTimesPayload, Options>;
 
 /** Payload from the `platform-due-times` event, assuming all properties are present. */
 export type FullPlatformDueTimesPayload = StreamPayload & {
@@ -663,7 +679,7 @@ export type FullPlatformDueTimesPayload = StreamPayload & {
 
 /** Payload from the `platform-due-times` event. */
 export type PlatformDueTimesPayload<Options extends PlatformDueTimesStreamOptions = {}> =
-    FilteredByProps<FullPlatformDueTimesPayload, Options["props"]>;
+    FilteredByProps<FullPlatformDueTimesPayload, Options>;
 
 // --- Last Seen Parsing ---
 
