@@ -51,18 +51,20 @@ function deserializeCollatedTrain(train: any) {
     }
     if (copy.timesAPI.plannedDestinations) {
         for (const plannedDestination of copy.timesAPI.plannedDestinations) {
-            if (plannedDestination.from.time !== undefined) {
+            if (plannedDestination.from?.time !== undefined) {
                 plannedDestination.from.time = new Date(plannedDestination.from.time);
             }
         }
     }
     if (copy.timesAPI.nextPlatforms) {
         for (const nextPlatform of copy.timesAPI.nextPlatforms) {
-            if (nextPlatform.time.actualScheduledTime !== undefined && nextPlatform.time.actualScheduledTime !== null) {
-                nextPlatform.time.actualScheduledTime = new Date(nextPlatform.time.actualScheduledTime);
-            }
-            if (nextPlatform.time.plannedScheduledTime !== undefined) {
-                nextPlatform.time.actualPredictedTime = new Date(nextPlatform.time.actualPredictedTime);
+            if (nextPlatform.time) {
+                if (nextPlatform.time.actualScheduledTime !== undefined && nextPlatform.time.actualScheduledTime !== null) {
+                    nextPlatform.time.actualScheduledTime = new Date(nextPlatform.time.actualScheduledTime);
+                }
+                if (nextPlatform.time.plannedScheduledTime !== undefined) {
+                    nextPlatform.time.actualPredictedTime = new Date(nextPlatform.time.actualPredictedTime);
+                }
             }
         }
     }
