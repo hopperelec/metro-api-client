@@ -171,7 +171,7 @@ export class MetroApiClient {
                 queryParams.append('props', serializeProps(opts.props));
             }
         }
-        const response = await fetch(`${this.baseUrl}/history/${trn}?${queryParams}`);
+        const response = await fetch(`${this.baseUrl}/history/train/${trn}?${queryParams}`);
 
         const data = await response.json();
         if (data.lastChecked) data.lastChecked = new Date(data.lastChecked);
