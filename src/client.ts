@@ -92,8 +92,8 @@ function deserializeDueTimes(dueTimes: any) {
             if (dueTime.time.actualScheduledTime !== undefined && dueTime.time.actualScheduledTime !== null) {
                 dueTime.time.actualScheduledTime = new Date(dueTime.time.actualScheduledTime);
             }
-            if (dueTime.time.plannedScheduledTime !== undefined) {
-                dueTime.time.plannedScheduledTime = new Date(dueTime.time.plannedScheduledTime);
+            if (dueTime.time.actualPredictedTime !== undefined) {
+                dueTime.time.actualPredictedTime = new Date(dueTime.time.actualPredictedTime);
             }
         }
         if (dueTime.status) dueTime.status = deserializeCollatedTrain(dueTime.status);
