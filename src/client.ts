@@ -101,16 +101,26 @@ function deserializeDueTimes(dueTimes: any) {
     return copy;
 }
 
+/**
+ * A client for the unofficial Tyne and Wear Metro API proxy
+ */
 export class MetroApiClient {
     constructor(private readonly baseUrl: string) {
         this.baseUrl = baseUrl.replace(/\/$/, '');
     }
 
+    /**
+     * Gets various constants used by the proxy (new day hour, refresh intervals, history length, stations...)
+     */
     async getConstants(): Promise<ApiConstants> {
         const response = await fetch(`${this.baseUrl}/constants`);
         return response.json();
     }
 
+    /**
+     * Gets the current status of all currently active trains
+     * @param opts Options
+     */
     async getTrains<Options extends TrainsOptions>(opts?: Options): Promise<TrainsResponse<Options>> {
         const queryParams = new URLSearchParams();
         if (opts?.props) {
@@ -132,6 +142,11 @@ export class MetroApiClient {
         return data;
     }
 
+    /**
+     * Gets the current and timetabled status of a train
+     * @param trn TRN of the train
+     * @param opts Options
+     */
     async getTrain<Options extends TrainOptions>(trn: string, opts?: Options): Promise<TrainResponse<Options>> {
         const queryParams = new URLSearchParams();
         if (opts?.props) {
@@ -145,6 +160,9 @@ export class MetroApiClient {
         return data;
     }
 
+    /**
+     * Gets a summary of the history of all trains with recent history
+     */
     async getHistorySummary(): Promise<HistorySummaryResponse> {
         const response = await fetch(`${this.baseUrl}/history`);
         const data = await response.json() as HistorySummaryResponse;
@@ -155,6 +173,11 @@ export class MetroApiClient {
         return data;
     }
 
+    /**
+     * Gets the history of a train
+     * @param trn TRN of the train
+     * @param opts Options
+     */
     async getTrainHistory<Options extends TrainHistoryOptions>(trn: string, opts?: Options): Promise<TrainHistoryResponse<Options>> {
         const queryParams = new URLSearchParams();
         if (opts) {
@@ -180,6 +203,10 @@ export class MetroApiClient {
         return data;
     }
 
+    /**
+     * Gets any errors (and optionally warnings) that have occurred during a heartbeat.
+     * @param opts Options
+     */
     async getHeartbeatErrors<Options extends HeartbeatErrorsOptions>(opts?: Options): Promise<HeartbeatErrorsResponse<Options>> {
         const queryParams = new URLSearchParams();
         if (opts) {
@@ -210,6 +237,10 @@ export class MetroApiClient {
         return data;
     }
 
+    /**
+     * Gets the next trains due at all platforms
+     * @param opts Options
+     */
     async getDueTimes<Options extends DueTimesOptions>(opts?: Options): Promise<DueTimesResponse<Options>> {
         const queryParams = new URLSearchParams();
         if (opts?.props) {
@@ -222,18 +253,28 @@ export class MetroApiClient {
         return data;
     }
 
-    async getPlatformDueTimes<Options extends PlatformDueTimesOptions>(platform: PlatformCode, opts?: Options): Promise<PlatformDueTimesResponse<Options>> {
+    /**
+     * Gets the next trains due at a platform
+     * @param platformCode Platform code
+     * @param opts Options
+     */
+    async getPlatformDueTimes<Options extends PlatformDueTimesOptions>(platformCode: PlatformCode, opts?: Options): Promise<PlatformDueTimesResponse<Options>> {
         const queryParams = new URLSearchParams();
         if (opts?.props) {
             queryParams.append('props', serializeProps(opts.props));
         }
-        const response = await fetch(`${this.baseUrl}/due-times/platform/${platform}?${queryParams}`);
+        const response = await fetch(`${this.baseUrl}/due-times/platform/${platformCode}?${queryParams}`);
         const data = await response.json();
         if (data.lastChecked) data.lastChecked = new Date(data.lastChecked);
         if (data.dueTimes) data.dueTimes = deserializeDueTimes(data.dueTimes);
         return data;
     }
 
+    /**
+     * Gets the next trains due at a station
+     * @param stationCode Station code
+     * @param opts Options
+     */
     async getStationDueTimes<Options extends StationDueTimesOptions>(stationCode: string, opts?: Options): Promise<StationDueTimesResponse<Options>> {
         const queryParams = new URLSearchParams();
         if (opts?.props) {
@@ -246,6 +287,10 @@ export class MetroApiClient {
         return data;
     }
 
+    /**
+     * Gets the timetable for a train. This is maintained by the host of this proxy, and is not guaranteed to be up to date.
+     * @param opts Options
+     */
     async getTimetable<Options extends TimetableOptions>(opts?: Options): Promise<TimetableResponse<Options>> {
         const queryParams = new URLSearchParams();
         if (opts) {
@@ -268,6 +313,11 @@ export class MetroApiClient {
         return response.json();
     }
 
+    /**
+     * Streams all new train history, heartbeat errors and warnings.
+     * @param callbacks Callbacks for the events
+     * @param opts Options
+     */
     streamHistory<Options extends HistoryStreamOptions>(
             callbacks: StreamCallbacks & {
                 onNewTrainHistoryEntries: (data: NewTrainsHistoryPayload) => void,
@@ -312,6 +362,13 @@ export class MetroApiClient {
         });
     }
 
+
+    /**
+     * Streams real-time updates for a single train.
+     * @param trn TRN of the train
+     * @param callbacks Callbacks for the events
+     * @param opts Options
+     */
     streamNewTrainHistory(
             trn: string,
             callbacks: StreamCallbacks & {
@@ -342,6 +399,11 @@ export class MetroApiClient {
         });
     }
 
+    /**
+     * Streams real-time train history updates.
+     * @param callbacks Callbacks for the events
+     * @param opts Options
+     */
     streamTrainsHistory(
             callbacks: StreamCallbacks & {
                 onNewHistoryEntries: (data: NewTrainsHistoryPayload) => void,
@@ -377,6 +439,11 @@ export class MetroApiClient {
         });
     }
 
+    /**
+     * Streams heartbeat errors (and optionally warnings).
+     * @param callbacks Callbacks for the events
+     * @param opts Options
+     */
     streamHeartbeatErrors(
             callbacks: StreamCallbacks & {
                 onHeartbeatError: (data: HeartbeatErrorPayload) => void,
@@ -419,6 +486,12 @@ export class MetroApiClient {
         });
     }
 
+    /**
+     * Streams real-time due times for a station.
+     * @param stationCode Station code
+     * @param callbacks Callbacks for the events
+     * @param opts Options
+     */
     streamStationDueTimes<Options extends StationDueTimesStreamOptions>(
             stationCode: string,
             callbacks: StreamCallbacks & {
@@ -445,6 +518,13 @@ export class MetroApiClient {
         });
     }
 
+
+    /**
+     * Streams real-time due times for a platform.
+     * @param platformCode Platform code
+     * @param callbacks Callbacks for the events
+     * @param opts Options
+     */
     streamPlatformDueTimes<Options extends PlatformDueTimesStreamOptions>(
             platformCode: string,
             callbacks: StreamCallbacks & {
