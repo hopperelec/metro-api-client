@@ -351,7 +351,7 @@ export class MetroApiClient {
                     case 'heartbeat-error':
                         callbacks.onHeartbeatError(data);
                         break;
-                    case 'heartbeat-warning':
+                    case 'heartbeat-warnings':
                         callbacks.onHeartbeatWarnings(data);
                         break;
                     default:
