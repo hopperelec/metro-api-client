@@ -35,6 +35,15 @@ export type TimeFilter =
 // --- Underlying API Related Types ---
 
 /**
+ * An identifier for a location a train can be timetabled to be.
+ * This is usually in the format `<station code>_<platform number>` (e.g., `"MTW_4"`).
+ * It can also be just a station code, particularly for NIS stations like sidings.
+ * While the proxy does control these codes, it is not recommended to assume that they are always in this format,
+ *  as they may change in the future.
+ */
+export type TimetabledLocation = string;
+
+/**
  * A unique identifier for a platform.
  * This is usually in the format `<station code>;<platform number>` (e.g., `"MTW;4"`).
  * However, the proxy does not check if this is in the expected format,
@@ -209,11 +218,8 @@ export interface ApiConstants<
     LINES: Lines;
     /** Map from station codes to human-readable names */
     STATION_CODES: StationCodes;
-    /**
-     * Map from line -> direction -> station code -> route code
-     * Note that not every station will have a known route code.
-     */
-    ROUTE_CODES: Record<keyof Lines, Record<TrainDirection, Record<keyof StationCodes, number>>>;
+    /** Map from route codes to destinations */
+    ROUTE_CODES: Record<number, TimetabledLocation>;
 }
 
 // --- `/trains` Endpoint ---
@@ -242,21 +248,15 @@ export type TrainsResponse<Options extends TrainsOptions> = FilteredByProps<Full
 /** Options for the `/train/:trn` endpoint */
 export interface TrainOptions extends FilterableProps {}
 
-/**
- * Expected timetabled location for a train.
- * The train should be at or between `station1` and `station2`.
- *
- * If the train is not expected to be in service yet, `station1`, `station2` and `destination`
- * will all be the name of the arrival/departure `place` (e.g. `"Gosforth Depot"`)
- */
+/** Expected timetabled location for a train. */
 export interface ExpectedTrainState {
-    /** State of the train */
-    state: 'not-started' | 'starting' | 'active' | 'ending' | 'ended' | 'nis';
-    /** Station code (e.g., `"MTS"`) or arrival/departure `place` (e.g., `"Gosforth Depot"`) */
-    station1: string;
-    /** Station code (e.g., `"CEN"`) or arrival/departure `place` (e.g., `"Gosforth Depot"`) */
-    station2: string;
-    /** Station code (e.g., `"SSS"`) or arrival/departure `place` (e.g., `"Gosforth Depot"`) */
+    /** Event, relative to the expected location */
+    event: 'ARRIVED' | 'DEPARTED' | 'APPROACHING';
+    /** The location the train is expected to be */
+    location: TimetabledLocation;
+    /** Whether the train is expected to be in passenger service */
+    inService: boolean;
+    /** The location the train is expected to be heading to */
     destination: string;
 }
 
@@ -443,133 +443,82 @@ export type HeartbeatErrorsResponse<Options extends HeartbeatErrorsOptions> =
 
 // --- `/timetable` Endpoint ---
 
+/**
+ * Type of timetable entry.
+ *
+ * 1: Depot start
+ * 2: Passenger stop
+ * 3: ECS or skips
+ * 4: Depot end
+ */
+export type TimetableType = 1 | 2 | 3 | 4;
+
 /** Options for the `/timetable` endpoint */
 export interface TimetableOptions {
     /**
-     * Date to get the timetable for, defaults to today.
-     * Note that the timetable usually crosses midnight into the next day.
+     * Date to get the timetable for. Defaults to today.
+     * Keep in mind that the timetable will usually cross midnight into the next day.
      */
     date?: Date;
-    /** Filter by Train Running Number (TRN, without the leading "T", e.g. `"101"`), defaults to all TRNs */
-    trn?: string;
-    /** Filter by station code. */
-    station?: string;
+    /** Range of time to filter the timetable by. */
+    time?: {
+        /** Start of the time range, in seconds since midnight. */
+        from?: number;
+        /** End of the time range, in seconds since midnight. */
+        to?: number;
+    };
     /**
-     * Which directions to include, if any.
-     * `"in"` for Airport to South Hylton or St James to South Shields.
-     * `"out"` for South Hylton to Airport or South Shields to St James.
+     * Maximum number of results to return. Intended to be used in conjunction with `time`.
+     * If `time` only specifies a `to`, the limit will be applied in reverse.
+     * Defaults to all entries matching the query.
      */
-    direction?: 'in' | 'out' | 'none';
-    /** Which empty maneuvers to include, if any. */
-    emptyManeuvers?: 'arrival' | 'departure' | 'none';
-    /** Properties to include in the empty maneuvers. */
-    emptyManeuverProps?: PropsFilter;
-    /** Properties to include in the tables. */
-    tableProps?: PropsFilter;
+    limit?: number;
+    /** Filter which TRNs to get the timetable for. Defaults to all timetabled TRNs. */
+    trns?: string[];
+    /** Filter the entries by type. Defaults to all types. */
+    types?: TimetableType[];
+    /** Filter the entries by location. Defaults to all locations. */
+    locations?: TimetabledLocation[];
+    /** Filter the entries by destination. Defaults to all destinations. */
+    destinations?: TimetabledLocation[];
+    /**
+     * Filter the entries by whether the train is in passenger service.
+     * Defaults to including both in-service and not in-service trains.
+     */
+    inService?: boolean;
+    /**
+     * Whether to only return entries for termini (entries where either `arrivalTime` or `departureTime` is missing).
+     * Defaults to false, meaning all entries are returned. `false` and `undefined` are equivalent here.
+     */
+    onlyTermini?: boolean;
 }
 
-/** Arrival/Departure time in "HHMMSS" format. */
-export type ArrivalTime = string;
-
-/** Direction of a train. */
-export type TrainDirection = "in" | "out";
-
-export interface BaseRoute {
-    /** Code which identifies the destination and line. */
-    code: number;
+/** An entry in a train's timetable. */
+export interface TrainTimetableEntry {
+    /** Type of this entry */
+    type: TimetableType;
+    /** Where the train is timetabled to be at this time. */
+    location: TimetabledLocation;
+    /** When this entry starts (i.e., when the train is expected to arrive at this location) */
+    arrivalTime: number;
+    /** When this entry ends (i.e., when the train is expected to depart from this location) */
+    departureTime: number;
+    /** Whether the train is timetabled to be in passenger service at this time */
+    inService: boolean;
+    /** Where the train is timetabled to be headed at this time */
+    destination: TimetabledLocation;
 }
 
-/** A route in the timetable, including all stations and their expected arrival times. */
-export interface AllStationsRoute extends BaseRoute {
-    /** Map of stations and their expected arrival times. */
-    stations: Record<string, ArrivalTime>;
+/** A list of entries in a train's timetable, ordered by time. */
+export type TrainTimetable = TrainTimetableEntry[];
+
+/** Response from the `/timetable` endpoint, the timetable for a single day. */
+export interface DayTimetable {
+    /** Description of the timetable referenced. You can use this to determine how up-to-date it is. */
+    description: string;
+    /** Map of train running numbers (TRNs, without the leading "T", e.g. "101") to their timetables. */
+    trains: Record<string, TrainTimetable>;
 }
-
-/** A route in the timetable and the expected arrival time at a specific station. */
-export interface SingleStationRoute extends BaseRoute {
-    /** The expected arrival time at the requested station. */
-    time: ArrivalTime;
-}
-
-/** A description of how a train, without passengers on board, gets to or from storage */
-export interface TrainEmptyManeuver {
-    /** Where the maneuver starts or ends (e.g., `"Gosforth Depot"`) */
-    place: string;
-    /** The time the maneuver starts or ends, in "HHMM" format */
-    time: string;
-    /** A description of the maneuver */
-    via: string;
-}
-
-/** A description of the maneuver a train does before starting service. */
-export interface FullDeparture extends TrainEmptyManeuver {
-    /** Where the maneuver starts (e.g., `"Gosforth Depot"`) */
-    place: string;
-    /** The time the maneuver starts, in "HHMM" format */
-    time: string;
-    /** A description of the maneuver, after departing */
-    via: string;
-}
-
-/** A description of the maneuver a train does after ending service. */
-export interface FullArrival extends TrainEmptyManeuver {
-    /** Where the maneuver ends (e.g., `"Gosforth Depot"`) */
-    place: string;
-    /** The time the maneuver ends, in "HHMM" format */
-    time: string;
-    /** A description of the maneuver, after ending service */
-    via: string;
-}
-
-interface _TrainTimetable<Options extends TimetableOptions> {
-    /** The maneuver the train does before starting service. */
-    departure: Options extends { emptyManeuvers: "arrival" | "none" }
-        ? never
-        : FilteredByProps<FullDeparture, Options, "emptyManeuverProps">;
-    /** The maneuver the train does after ending service. */
-    arrival: Options extends { emptyManeuvers: "departure" | "none" }
-        ? never
-        : FilteredByProps<FullArrival, Options, "emptyManeuverProps">;
-    /** In-line timetable for the train. */
-    in: Options extends { direction: "out" | "none" }
-        ? never
-        : FilteredByProps<
-            Options extends { station: string }
-                ? SingleStationRoute
-                : AllStationsRoute,
-            Options, "tableProps">[];
-    /** Out-line timetable for the train. */
-    out: Options extends { direction: "in" | "none" }
-        ? never
-        : FilteredByProps<
-            Options extends { station: string }
-                ? SingleStationRoute
-                : AllStationsRoute,
-            Options, "tableProps">[];
-}
-
-// It seems that _TrainTimetable is too complex for TypeScript to
-//  evaluate the exact type when checking for assignability.
-// Instead, it just checks if the `Options` generics are mutually assignable.
-// However, this means that, for example, `TrainTimetable<{ date: Date }>`
-//  is not assignable to `TrainTimetable`, even though they evaluate to the same type.
-// It enforces this so strictly that it doesn't even permit asserting the type
-//  (`TrainTimetable<{ date: Date }> as TrainTimetable`) unless you use `as unknown` first.
-// This proxy type is a workaround to force TypeScript to ignore properties
-//  which I am confident have no effect on the final structure of the type.
-//
-// I spent way too long debugging this because I refuse
-//  to use `as unknown as TrainTimetable<...>` everywhere.
-// If you have a more elegant solution, I'm dying to know.
-/** Timetable information for a single train on a specific day type. */
-export type TrainTimetable<Options extends TimetableOptions = {}> =
-    _TrainTimetable<Pick<Options, "emptyManeuvers" | "emptyManeuverProps" | "direction" | "station" | "tableProps">>;
-
-/** Response from the `/timetable` endpoint. */
-export type TimetableResponse<Options extends TimetableOptions> =
-    Options extends { trn: string }
-        ? TrainTimetable<Options>
-        : Record<string, TrainTimetable<Options>>;
 
 // --- Streams ---
 

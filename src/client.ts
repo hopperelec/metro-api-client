@@ -20,7 +20,7 @@ import {
     StreamCallbacks,
     TimeFilter,
     TimetableOptions,
-    TimetableResponse,
+    DayTimetable,
     TrainHistoryOptions,
     TrainHistoryResponse, TrainHistoryStreamOptions,
     TrainOptions,
@@ -288,25 +288,31 @@ export class MetroApiClient {
     }
 
     /**
-     * Gets the timetable for a train. This is maintained by the host of this proxy, and is not guaranteed to be up to date.
+     * Gets the timetable for a day. This is maintained by the host of the proxy, and is not guaranteed to be up to date.
      * @param opts Options
      */
-    async getTimetable<Options extends TimetableOptions>(opts?: Options): Promise<TimetableResponse<Options>> {
+    async getTimetable(opts?: TimetableOptions): Promise<DayTimetable> {
         const queryParams = new URLSearchParams();
         if (opts) {
-            for (const opt of ['trn', 'station', 'direction', 'emptyManeuvers'] as const) {
-                if (opts[opt]) {
-                    queryParams.append(opt, opts[opt].toString());
-                }
-            }
             if (opts.date) {
                 queryParams.append('date', opts.date.toISOString().split('T')[0]);
             }
-            if (opts.emptyManeuverProps) {
-                queryParams.append('emptyManeuverProps', serializeProps(opts.emptyManeuverProps));
+            if (opts.time && (opts.time.from || opts.time.to)) {
+                queryParams.append('time', `${opts.time.from || ''}...${opts.time.to || ''}`);
             }
-            if (opts.tableProps) {
-                queryParams.append('tableProps', serializeProps(opts.tableProps));
+            if (opts.limit) {
+                queryParams.append('limit', opts.limit.toString());
+            }
+            for (const opt of ['trns', 'types', 'locations', 'destinations'] as const) {
+                if (opts[opt]) {
+                    queryParams.append(opt, opts[opt].join(','));
+                }
+            }
+            if (opts.inService !== undefined) {
+                queryParams.append('inService', opts.inService ? '1' : '0');
+            }
+            if (opts.onlyTermini) {
+                queryParams.append('onlyTermini', '1');
             }
         }
         const response = await fetch(`${this.baseUrl}/timetable?${queryParams}`);
