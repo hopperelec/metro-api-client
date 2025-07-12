@@ -251,7 +251,7 @@ export interface TrainOptions extends FilterableProps {}
 /** Expected timetabled location for a train. */
 export interface ExpectedTrainState {
     /** Event, relative to the expected location */
-    event: 'ARRIVED' | 'DEPARTED' | 'APPROACHING';
+    event: 'ARRIVED' | 'DEPARTED' | 'APPROACHING' | 'TERMINATED';
     /** The location the train is expected to be */
     location: TimetabledLocation;
     /** Whether the train is expected to be in passenger service */
