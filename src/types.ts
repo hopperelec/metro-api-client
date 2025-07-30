@@ -191,8 +191,8 @@ type FilteredByAPI<
 
 /** Response from the `/constants` endpoint. */
 export interface ApiConstants<
-    StationCodes extends Record<string, string> = Record<string, string>,
-    Lines extends Record<string, (keyof StationCodes)[]> = Record<string, (keyof StationCodes)[]>,
+    LocationAbbreviations extends Record<string, string> = Record<string, string>,
+    Lines extends Record<string, (keyof LocationAbbreviations)[]> = Record<string, (keyof LocationAbbreviations)[]>,
 > {
     /** Hour at which the timetable resets to the next day (0-23). */
     NEW_DAY_HOUR: number;
@@ -212,12 +212,12 @@ export interface ApiConstants<
     MAX_HISTORY_REQUEST_LIMIT: number;
     /** Default number of history entries (limit) returned by `/history/train/:trn` if no limit is specified */
     DEFAULT_HISTORY_REQUEST_LIMIT: number;
-    /** List of "station" codes where trains may be timetabled to stop at, but not while holding passengers, such as sidings */
-    NIS_STATIONS: (keyof StationCodes)[];
+    /** List of location abbreviations that refer to valid passenger stops (ie, not depots, sidings, vents, etc.) */
+    PASSENGER_STOPS: (keyof LocationAbbreviations)[];
     /** Map of lines and the stations on them */
     LINES: Lines;
-    /** Map from station codes to human-readable names */
-    STATION_CODES: StationCodes;
+    /** Map from location abbreviations to human-readable names */
+    LOCATION_ABBREVIATIONS: LocationAbbreviations;
     /** Map from route codes to destinations */
     ROUTE_CODES: Record<number, TimetabledLocation>;
 }
