@@ -295,7 +295,8 @@ export class MetroApiClient {
         const queryParams = new URLSearchParams();
         if (opts) {
             if (opts.date) {
-                queryParams.append('date', opts.date.toISOString().split('T')[0]);
+                const d = opts.date;
+                queryParams.append('date', `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`);
             }
             if (opts.time && (opts.time.from || opts.time.to)) {
                 queryParams.append('time', `${opts.time.from || ''}...${opts.time.to || ''}`);
